@@ -3,6 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 
 from spinecho_sim import SolenoidSimulator
+from spinecho_sim.classical_solenoid_test import sample_unit_circle
 
 if __name__ == "__main__":
     print("Example placeholder script for spinecho simulation.")
@@ -11,16 +12,19 @@ if __name__ == "__main__":
         "field": [0.0, 0.0, 1.0],
         "time_step": 0.01,
         "length": 10.0,
-        "init_spin": [1.0, 0.0, 0.0],
+        "init_spin": sample_unit_circle(2),  # Sample a random initial spin direction
     }
     sim = SolenoidSimulator(sim_params)
     t, s = sim.run()
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    ax.plot(t, s[:, 0], label=r"$m_x$")
-    ax.plot(t, s[:, 1], label=r"$m_y$")
-    ax.plot(t, s[:, 2], label=r"$m_z$")
+    # s is assumed to be (num_timesteps, num_spins, 3)
+    num_spins = s.shape[1]
+    for spin_idx in range(num_spins):
+        ax.plot(t, s[:, spin_idx, 0], label=rf"$m_x$ (spin {spin_idx + 1})")
+        ax.plot(t, s[:, spin_idx, 1], label=rf"$m_y$ (spin {spin_idx + 1})")
+        ax.plot(t, s[:, spin_idx, 2], label=rf"$m_z$ (spin {spin_idx + 1})")
 
     ax.set_xlabel("Time")
     ax.set_ylabel("Spin components")
@@ -30,4 +34,7 @@ if __name__ == "__main__":
     ax.legend()
     ax.grid(visible=True)
 
-    plt.show()
+    # Save the plot instead of showing it
+    output_path = "/workspaces/spinecho_sim/figures/spin_simulation_plot.png"
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    print(f"Plot saved to: {output_path}")

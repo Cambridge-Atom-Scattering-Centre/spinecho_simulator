@@ -12,6 +12,34 @@ if TYPE_CHECKING:
 gyromagnetic_ratio = 2.0 * np.pi * 1.0  # gyromagnetic ratio (rad s^-1 T^-1)
 
 
+# -- helper: sample N uniform directions on the unit sphere --
+def sample_unit_sphere(n: int) -> NDArray[np.floating[Any]]:
+    """Sample N uniform random directions on the unit sphere.
+
+    Returns
+    -------
+    NDArray[np.floating[Any]]
+        An array of shape (N, 3) containing unit vectors.
+    """
+    phi: NDArray[np.floating[Any]] = np.random.uniform(0, 2 * np.pi, size=n)
+    cos = np.random.uniform(-1, 1, size=n)
+    sin = np.sqrt(1 - cos**2)
+    return np.stack([sin * np.cos(phi), sin * np.sin(phi), cos], axis=1)
+
+
+# -- helper: sample N uniform directions on the unit sphere --
+def sample_unit_circle(n: int) -> NDArray[np.floating[Any]]:
+    """Sample N uniform random directions on the unit circle normal to z-axis.
+
+    Returns
+    -------
+    NDArray[np.floating[Any]]
+        An array of shape (N, 3) containing unit vectors.
+    """
+    phi: NDArray[np.floating[Any]] = np.random.uniform(0, 2 * np.pi, size=n)
+    return np.stack([np.cos(phi), np.sin(phi), np.zeros_like(phi)], axis=1)
+
+
 class SolenoidSimulator:
     """Main class for running classical solenoid simulations."""
 
@@ -19,8 +47,7 @@ class SolenoidSimulator:
         """Initialize simulator with parameters.
 
         Args:
-            parameters: Dictionary containing simulation parameters like
-                'field_strength', 'frequency', 'duration', etc.
+            parameters: Dictionary containing simulation parameters
         """
         self.parameters = parameters
         self._validate_parameters()
@@ -60,14 +87,15 @@ class SolenoidSimulator:
             self.parameters.get("init_spin", [1.0, 0.0, 0.0])
         )
 
+        n: int = len(init_spin)
+
         # Time array based on velocity and length
         t: NDArray[np.floating[Any]] = np.arange(0, length / velocity, time_step)
 
         # Initialize spin vector array (3D vectors over time)
-        s: NDArray[np.floating[Any]] = np.zeros((len(t), 3))
+        s: NDArray[np.floating[Any]] = np.zeros((len(t), n, 3))
         s[0] = init_spin  # Set initial spin state
 
-        # Simple spin echo simulation (placeholder)
         # Differential equation dS/dt = gamma * S x B
         def ds_dt(s_vec: NDArray[np.floating[Any]]) -> NDArray[np.floating[Any]]:
             return gyromagnetic_ratio * np.cross(s_vec, field)
@@ -80,6 +108,4 @@ class SolenoidSimulator:
             k4 = ds_dt(s[i] + time_step * k3)
             s[i + 1] = s[i] + (time_step / 6.0) * (k1 + 2 * k2 + 2 * k3 + k4)
 
-        # Return the x-component as the observable signal
-        # signal: NDArray[np.floating[Any]] = s[:, 0]
         return t, s
