@@ -1,35 +1,126 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from spinecho_sim import SolenoidSimulator
-from spinecho_sim.classical_solenoid_test import sample_unit_circle
+from spinecho_sim.classical_solenoid_test import (
+    sample_gaussian_velocities,
+    sample_s_uniform,
+)
 
 if __name__ == "__main__":
     print("Example placeholder script for spinecho simulation.")
     sim_params = {
-        "velocity": 1.0,
-        "field": [0.0, 0.0, 1.0],
+        # "velocity": sample_boltzmann_velocities(50, 1.0, 1.0),
+        "velocity": sample_gaussian_velocities(50, 1.0, 0.008),
+        "field": [-0.01, 0.01, 1.0],
         "time_step": 0.01,
         "length": 10.0,
-        "init_spin": sample_unit_circle(2),  # Sample a random initial spin direction
+        "init_spin": sample_s_uniform(50, np.array([1.0, 0.0, 0.0])),
     }
     sim = SolenoidSimulator(sim_params)
-    t, s = sim.run()
+    z, s = sim.run()
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
     # s is assumed to be (num_timesteps, num_spins, 3)
-    num_spins = s.shape[1]
-    for spin_idx in range(num_spins):
-        ax.plot(t, s[:, spin_idx, 0], label=rf"$m_x$ (spin {spin_idx + 1})")
-        ax.plot(t, s[:, spin_idx, 1], label=rf"$m_y$ (spin {spin_idx + 1})")
-        ax.plot(t, s[:, spin_idx, 2], label=rf"$m_z$ (spin {spin_idx + 1})")
+    num_spins = s.shape[0]
 
-    ax.set_xlabel("Time")
+    # Assign a distinct colormap for each spin component
+
+    colormaps = [
+        plt.cm.Blues,  # For Sx
+        plt.cm.Greens,  # For Sy
+        plt.cm.Reds,  # For Sz
+    ]
+    # For each component, generate a set of shades for all spins
+    component_colors = [cmap(np.linspace(0.3, 0.9, num_spins)) for cmap in colormaps]
+
+    # Choose a common z-grid
+    Nz = 500  # number of distance bins you want
+    z_grid = np.linspace(0, sim_params.get("length"), Nz)
+
+    # Interpolate each spin’s components onto that z-grid, You'll end up with shape (Nz, Nspins, 3)
+    S_on_z = np.empty((Nz, num_spins, 3))
+
+    for spin_idx in range(num_spins):
+        # Get the number of time steps for this spin
+        n_steps = len(z[spin_idx])
+        # Plot only the valid segment for this spin
+        ax.plot(
+            z[spin_idx],
+            s[spin_idx, :n_steps, 0],
+            # label=rf"$m_x$ (spin {spin_idx + 1})",
+            linewidth=1.0,
+            alpha=0.2,
+            color=component_colors[0][spin_idx],
+        )
+        ax.plot(
+            z[spin_idx],
+            s[spin_idx, :n_steps, 1],
+            # label=rf"$m_y$ (spin {spin_idx + 1})",
+            linewidth=1.0,
+            alpha=0.2,
+            color=component_colors[1][spin_idx],
+        )
+        ax.plot(
+            z[spin_idx],
+            s[spin_idx, :n_steps, 2],
+            # label=rf"$m_z$ (spin {spin_idx + 1})",
+            linewidth=1.0,
+            alpha=0.2,
+            color=component_colors[2][spin_idx],
+        )
+
+        # for each component separately:
+        for comp in range(3):
+            S_on_z[:, spin_idx, comp] = np.interp(
+                z_grid,  # the x-coordinates where to interpolate
+                z[spin_idx],  # each spin’s sampled distances
+                s[spin_idx, :n_steps, comp],  # the values to interpolate
+            )
+
+    S_avg = S_on_z.mean(axis=1)  # shape (Nz, 3)
+    S_std = S_on_z.std(axis=1)  # if you want error-bars
+
+    ax.plot(z_grid, S_avg[:, 0], label="⟨Sx⟩", color=component_colors[0][spin_idx])
+    ax.plot(z_grid, S_avg[:, 1], label="⟨Sy⟩", color=component_colors[1][spin_idx])
+    ax.plot(z_grid, S_avg[:, 2], label="⟨Sz⟩", color=component_colors[2][spin_idx])
+    # Plot fill_between for Sx, Sy, Sz above all previous plots by setting higher zorder
+    ax.fill_between(
+        z_grid,
+        S_avg[:, 0] - S_std[:, 0],
+        S_avg[:, 0] + S_std[:, 0],
+        alpha=0.2,
+        zorder=10,
+        label="⟨Sx⟩ ± std",
+        color=component_colors[0][spin_idx],
+    )
+    ax.fill_between(
+        z_grid,
+        S_avg[:, 1] - S_std[:, 1],
+        S_avg[:, 1] + S_std[:, 1],
+        alpha=0.2,
+        zorder=10,
+        label="⟨Sy⟩ ± std",
+        color=component_colors[1][spin_idx],
+    )
+    ax.fill_between(
+        z_grid,
+        S_avg[:, 2] - S_std[:, 2],
+        S_avg[:, 2] + S_std[:, 2],
+        alpha=0.2,
+        zorder=10,
+        label="⟨Sz⟩ ± std",
+        color=component_colors[2][spin_idx],
+    )
+
+    ax.set_xlabel("Distance along solenoid")
     ax.set_ylabel("Spin components")
     ax.set_title(
-        r"Classical Larmor Precession in a Uniform Magnetic Field $\mathbf{B}=B_0 \mathbf{z}$"
+        r"Classical Larmor Precession in a Uniform Magnetic Field $\mathbf{B}=B_0 \mathbf{z}$,"
+        f" {num_spins} spins"
     )
     ax.legend()
     ax.grid(visible=True)
