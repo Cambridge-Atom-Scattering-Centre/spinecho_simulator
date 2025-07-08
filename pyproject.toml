@@ -1,14 +1,13 @@
 [project]
 name = "spinecho_sim"
-version = "0.0.1"
+version = "0.0.2"
 description = "Analysis of Spin Echo Trajectories, using Phonopy and Wannier Interpolation"
+authors = [{ name = "William Royce", email = "wr286@cam.ac.uk" }]
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = [
-    "numpy>=2.3.1",
-]
+dependencies = ["numpy>=2.3.1"]
 
-[dependency-groups]
+[project.optional-dependencies]
 dev = [
     "ruff",
     "pytest >=8.3.3,<9.0.0",
@@ -16,6 +15,7 @@ dev = [
     "sphinx >=8.1.3,<9.0.0",
     "pydata-sphinx-theme >=0.16.0,<0.17.0",
 ]
+plotting = ["matplotlib>=3.8.0"]
 
 
 [tool.ruff]
