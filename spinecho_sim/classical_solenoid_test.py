@@ -60,11 +60,7 @@ def sample_disk(n: int, r_max: float) -> np.ndarray:
     # radii with PDF ∝ r  →  CDF ∝ r^2  →  r = R * sqrt(u)
     u = np.random.uniform(0, 1, size=n)
     r = r_max * np.sqrt(u)
-
-    # convert to Cartesian
-    x = r * np.cos(theta)
-    y = r * np.sin(theta)
-    return np.stack([x, y, theta], axis=1)
+    return np.stack([r, theta], axis=1)
 
 
 # -- helper: sample N uniform directions on the unit sphere --
@@ -170,7 +166,9 @@ class SolenoidSimulator:
         init_spin: NDArray[np.floating[Any]] = np.array(
             self.parameters.get("init_spin", [1.0, 0.0, 0.0])
         )
-        np.array(self.parameters.get("r_dist", 0.0))
+        perp_dist: NDArray[np.floating[Any]] = np.array(
+            self.parameters.get("perp_dist", 0.0)
+        )
 
         n: int = len(init_spin)
         z_dist = [np.arange(0, length, time_step * v) for v in velocity]
@@ -191,7 +189,8 @@ class SolenoidSimulator:
         def off_axis_field_components(
             z: float,
             r: float,
-            dz: float = 1e-4,
+            theta: float,
+            dz: float = 1e-5,
         ) -> NDArray[np.floating[Any]]:
             # Get B_0(z) and its derivatives numerically
             b0_z = get_field(z)
@@ -200,18 +199,30 @@ class SolenoidSimulator:
             b0_z = np.asarray(b0_z)[2]
 
             # Get the derivatives numerically
-            b0_p = np.gradient(b0_z, dz, axis=0)
-            b0_pp = np.gradient(b0_p, dz, axis=0)
+            b0_p = (
+                np.asarray(get_field(z + dz))[2] - np.asarray(get_field(z - dz))[2]
+            ) / (2 * dz)
+            b0_pp = (
+                np.asarray(get_field(z + dz))[2]
+                - 2 * b0_z
+                + np.asarray(get_field(z - dz))[2]
+            ) / (dz**2)
 
-            br = -0.5 * r * b0_p
-            dbz = -0.25 * r**2 * b0_pp
+            b_r = -0.5 * r * b0_p
+            db_z = -0.25 * r**2 * b0_pp
 
-            return np.array([br, 0.0, b0_z + dbz])
+            return np.array([b_r * np.cos(theta), b_r * np.sin(theta), b0_z + db_z])
 
         # Differential equation dS/dt = gamma * S x B
         def ds_dt(
             s_vec: NDArray[np.floating[Any]], b_vec: NDArray[np.floating[Any]]
         ) -> NDArray[np.floating[Any]]:
+            # Check if perp_dist was supplied by the user (not default)
+            if "perp_dist" in self.parameters:
+                # perp_dist can be scalar or array; handle both
+                r = perp_dist[spin_idx, 0]
+                theta = perp_dist[spin_idx, 1]
+                b_vec = off_axis_field_components(z_now, r, theta)
             return gyromagnetic_ratio * np.cross(s_vec, b_vec)
 
         # Find the maximum number of time steps among all spins

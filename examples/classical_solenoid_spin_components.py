@@ -19,7 +19,7 @@ if __name__ == "__main__":
         "time_step": 0.01,
         "length": 10.0,
         "init_spin": sample_s_uniform(50, np.array([1.0, 0.0, 0.0])),
-        "r_dist": sample_disk(50, 0.1),  # Sample a disk of radius 0.1
+        "perp_dist": sample_disk(50, 0.05),  # Sample a disk of radius 0.1
     }
     sim = SolenoidSimulator(sim_params)
     z, s = sim.run()
