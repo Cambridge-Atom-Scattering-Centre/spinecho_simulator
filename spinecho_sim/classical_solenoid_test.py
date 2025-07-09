@@ -9,7 +9,7 @@ import numpy as np
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
-gyromagnetic_ratio = 2.0 * np.pi * 1.0  # gyromagnetic ratio (rad s^-1 T^-1)
+gyromagnetic_ratio = 2.04e8  # gyromagnetic ratio (rad s^-1 T^-1)
 
 
 # -- helper: sample N uniform directions on the unit sphere --
