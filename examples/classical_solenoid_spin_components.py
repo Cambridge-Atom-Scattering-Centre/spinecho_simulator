@@ -5,19 +5,21 @@ import numpy as np
 
 from spinecho_sim import SolenoidSimulator
 from spinecho_sim.classical_solenoid_test import (
+    sample_disk,
     sample_gaussian_velocities,
     sample_s_uniform,
 )
 
 if __name__ == "__main__":
-    print("Example placeholder script for spinecho simulation.")
+    print("Script for Classical Solenoid simulation of spin components.")
     sim_params = {
-        # "velocity": sample_boltzmann_velocities(50, 1.0, 1.0),
         "velocity": sample_gaussian_velocities(50, 1.0, 0.008),
-        "field": [-0.01, 0.01, 1.0],
+        # "field": [-0.01, 0.01, 1.0],
+        "field": lambda z: [0.0, 0.0, np.sin(np.pi * np.asarray(z) / 10)],
         "time_step": 0.01,
         "length": 10.0,
         "init_spin": sample_s_uniform(50, np.array([1.0, 0.0, 0.0])),
+        "r_dist": sample_disk(50, 0.1),  # Sample a disk of radius 0.1
     }
     sim = SolenoidSimulator(sim_params)
     z, s = sim.run()
@@ -35,7 +37,7 @@ if __name__ == "__main__":
         plt.cm.Reds,  # For Sz
     ]
     # For each component, generate a set of shades for all spins
-    component_colors = [cmap(np.linspace(0.3, 0.9, num_spins)) for cmap in colormaps]
+    component_colors = [cmap(np.linspace(0.3, 0.8, num_spins)) for cmap in colormaps]
 
     # Choose a common z-grid
     Nz = 500  # number of distance bins you want
@@ -76,7 +78,7 @@ if __name__ == "__main__":
         # for each component separately:
         for comp in range(3):
             S_on_z[:, spin_idx, comp] = np.interp(
-                z_grid,  # the x-coordinates where to interpolate
+                z_grid,  # the z-coordinates where to interpolate
                 z[spin_idx],  # each spin’s sampled distances
                 s[spin_idx, :n_steps, comp],  # the values to interpolate
             )
@@ -116,16 +118,27 @@ if __name__ == "__main__":
         color=component_colors[2][spin_idx],
     )
 
-    ax.set_xlabel("Distance along solenoid")
+    Intensity = np.sqrt(S_avg[:, 0] ** 2 + S_avg[:, 1] ** 2)
+    ax.plot(
+        z_grid,
+        Intensity,
+        label=r"$I_\parallel =\langle S_x\rangle^2+\langle S_y\rangle^2$",
+        color="black",
+        linestyle="--",
+    )
+
+    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
     ax.set_ylabel("Spin components")
     ax.set_title(
-        r"Classical Larmor Precession in a Uniform Magnetic Field $\mathbf{B}=B_0 \mathbf{z}$,"
+        r"Classical Larmor Precession in a Uniform Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$,"
         f" {num_spins} spins"
     )
     ax.legend()
     ax.grid(visible=True)
 
     # Save the plot instead of showing it
-    output_path = "/workspaces/spinecho_sim/figures/spin_simulation_plot.png"
+    output_path = (
+        "/workspaces/spinecho_sim/figures/classical_solenoid_components_plot.png"
+    )
     plt.savefig(output_path, dpi=300, bbox_inches="tight")
     print(f"Plot saved to: {output_path}")
