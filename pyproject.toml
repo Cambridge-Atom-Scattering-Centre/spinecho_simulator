@@ -74,6 +74,7 @@ testpaths = ["tests"]
 typeCheckingMode = "strict"
 include = ["tests", "spinecho_sim", "examples"]
 reportImplicitOverride = true
+reportUnknownMemberType = false
 
 [build-system]
 requires = ["setuptools"]

@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from numpy.typing import NDArray
 
 gyromagnetic_ratio = 2.04e8  # gyromagnetic ratio (rad s^-1 T^-1)
@@ -121,60 +124,44 @@ def sample_gaussian_velocities(
     return rng.normal(loc=mu, scale=sigma, size=n)
 
 
+@dataclass
+class Solenoid:
+    """Dataclass representing a solenoid with its parameters."""
+
+    length: float = 1.0
+    time_step: float = 0.1
+    velocity: NDArray[np.floating[Any]] = field(default_factory=lambda: np.array([1.0]))
+    init_spin: NDArray[np.floating[Any]] = field(
+        default_factory=lambda: np.array([1.0, 0.0, 0.0])
+    )
+    field: NDArray[np.floating[Any]] | Callable[[float], NDArray[np.floating[Any]]] = (
+        field(default_factory=lambda: np.array([0.0, 0.0, 1.0]))
+    )
+    perp_dist: NDArray[np.floating[Any]] | None = None
+
+
 class SolenoidSimulator:
     """Main class for running classical solenoid simulations."""
 
-    def __init__(self, parameters: dict[str, Any]) -> None:
-        """Initialize simulator with parameters.
-
-        Args:
-            parameters: Dictionary containing simulation parameters
-        """
-        self.parameters = parameters
-        self._validate_parameters()
-
-    def _validate_parameters(self) -> None:
-        """Validate required parameters are present.
-
-        Raises
-        ------
-        ValueError
-            If any required parameter is missing.
-        """
-        required_params = [
-            "velocity",
-            "field",
-            "time_step",
-            "length",
-            "init_spin",
-        ]
-        missing = [p for p in required_params if p not in self.parameters]
-        if missing:
-            msg = f"Missing required parameters: {missing}"
-            raise ValueError(msg)
+    def __init__(self, solenoid: Solenoid) -> None:
+        self.solenoid = solenoid
 
     def run(
         self,
     ) -> tuple[list[np.ndarray], NDArray[np.floating[Any]]]:
         """Run the spin echo simulation using configured parameters."""
         # Extract parameters with explicit type casting
-        velocity: NDArray[np.floating[Any]] = np.array(
-            self.parameters.get("velocity", 1.0)
-        )
-        time_step: float = float(self.parameters.get("time_step", 0.1))
-        length: float = float(self.parameters.get("length", 1.0))
-        init_spin: NDArray[np.floating[Any]] = np.array(
-            self.parameters.get("init_spin", [1.0, 0.0, 0.0])
-        )
-        perp_dist: NDArray[np.floating[Any]] = np.array(
-            self.parameters.get("perp_dist", 0.0)
-        )
+        velocity = self.solenoid.velocity
+        time_step = self.solenoid.time_step
+        length = self.solenoid.length
+        init_spin = self.solenoid.init_spin
+        perp_dist = self.solenoid.perp_dist
 
         n: int = len(init_spin)
         z_dist = [np.arange(0, length, time_step * v) for v in velocity]
 
         # --- Custom field support ---
-        field_param = self.parameters.get("field", [0.0, 0.0, 1.0])
+        field_param = self.solenoid.field
         # field_param can be:
         # - a constant vector (list/array of 3)
         # - a callable: field(z) -> array_like shape (3,)
@@ -217,8 +204,8 @@ class SolenoidSimulator:
         def ds_dt(
             s_vec: NDArray[np.floating[Any]], b_vec: NDArray[np.floating[Any]]
         ) -> NDArray[np.floating[Any]]:
-            # Check if perp_dist was supplied by the user (not default)
-            if "perp_dist" in self.parameters:
+            # Check if perp_dist is provided and not all zeros (i.e., at least one particle is off-axis)
+            if perp_dist is not None and not np.allclose(perp_dist, 0):
                 # perp_dist can be scalar or array; handle both
                 r = perp_dist[spin_idx, 0]
                 theta = perp_dist[spin_idx, 1]
@@ -229,7 +216,7 @@ class SolenoidSimulator:
         max_steps = max(len(z) for z in z_dist)
 
         # Initialize spin vector array (3D vectors over time)
-        s: NDArray[np.floating[Any]] = np.zeros((n, max_steps, 3))
+        s = np.zeros((n, max_steps, 3))
 
         # Integrate using 4th-order Runge-Kutta
         for spin_idx in range(n):

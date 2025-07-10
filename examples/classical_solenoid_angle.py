@@ -5,6 +5,7 @@ import numpy as np
 
 from spinecho_sim import SolenoidSimulator
 from spinecho_sim.classical_solenoid_test import (
+    Solenoid,
     sample_disk,
     sample_gaussian_velocities,
     sample_s_uniform,
@@ -19,22 +20,24 @@ if __name__ == "__main__":
     B_0 = np.pi * magnetic_constant * current / (2 * solenoid_length)
     num_spins = 20
     dt = 1 / (100 * 2.04e8 * B_0)  # 100 time steps per Larmor period
-    sim_params = {
-        "velocity": sample_gaussian_velocities(
+
+    Solenoid = Solenoid(
+        solenoid_length,
+        dt,
+        sample_gaussian_velocities(
             num_spins, particle_velocity, 0.225 * particle_velocity
         ),
-        # "field": [-0.01, 0.01, 1.0],
-        "field": lambda z: [
-            0.0,
-            0.0,
-            B_0 * np.sin(np.pi * np.asarray(z) / solenoid_length) ** 2,
-        ],
-        "time_step": dt,  # Time step in seconds
-        "length": solenoid_length,
-        "init_spin": sample_s_uniform(num_spins, np.array([0.5, 0.0, 0.0])),
-        "perp_dist": sample_disk(num_spins, 1.16e-3),  # Sample a disk of radius 0.1
-    }
-    sim = SolenoidSimulator(sim_params)
+        sample_s_uniform(num_spins, np.array([0.5, 0.0, 0.0])),
+        lambda z: np.array(
+            [
+                0.0,
+                0.0,
+                B_0 * np.sin(np.pi * np.asarray(z) / solenoid_length) ** 2,
+            ]
+        ),
+        sample_disk(num_spins, 1.16e-3),
+    )
+    sim = SolenoidSimulator(Solenoid)
     z, s = sim.run()
 
     fig, ax = plt.subplots(figsize=(10, 6))
@@ -54,7 +57,7 @@ if __name__ == "__main__":
 
     # Choose a common z-grid
     Nz = 500  # number of distance bins you want
-    z_grid = np.linspace(0, sim_params.get("length"), Nz)
+    z_grid = np.linspace(0, Solenoid.length, Nz)
 
     # Interpolate each spin’s angles onto that z-grid, You'll end up with shape (Nz, Nspins, 3)
     S_on_z = np.empty((Nz, num_spins, 3))
@@ -64,21 +67,25 @@ if __name__ == "__main__":
         # Get the number of time steps for this spin
         n_steps = len(z[spin_idx])
         # Plot only the valid segment for this spin
-        theta = np.arctan2(s[spin_idx, :n_steps, 1], s[spin_idx, :n_steps, 0])
-        phi = np.arctan2(
+        theta_wrapped = np.arctan2(s[spin_idx, :n_steps, 1], s[spin_idx, :n_steps, 0])
+        phi_wrapped = np.arctan2(
             s[spin_idx, :n_steps, 2],
             np.sqrt(s[spin_idx, :n_steps, 0] ** 2 + s[spin_idx, :n_steps, 1] ** 2),
         )
+
+        theta = np.unwrap(theta_wrapped, np.pi)
+        phi = np.unwrap(phi_wrapped, np.pi)
+
         ax.plot(
             z[spin_idx] - solenoid_length / 2,
-            theta,
+            theta / np.pi,
             linewidth=1.0,
             alpha=0.2,
             color=component_colors[0][spin_idx],
         )
         ax.plot(
             z[spin_idx] - solenoid_length / 2,
-            phi,
+            phi / np.pi,
             linewidth=1.0,
             alpha=0.2,
             color=component_colors[1][spin_idx],
@@ -107,23 +114,23 @@ if __name__ == "__main__":
     Angles_std = Angles_on_z.std(axis=1)  # if you want error-bars
 
     ax.plot(
-        z_grid - solenoid_length / 2,
-        Angles_avg[:, 0],
+        z_grid - Solenoid.length / 2,
+        Angles_avg[:, 0] / np.pi,
         label=r"⟨$\theta$⟩",
         color=component_colors[0][spin_idx],
     )
     ax.plot(
-        z_grid - solenoid_length / 2,
-        Angles_avg[:, 1],
+        z_grid - Solenoid.length / 2,
+        Angles_avg[:, 1] / np.pi,
         label=r"⟨$\phi$⟩",
         color=component_colors[1][spin_idx],
     )
 
     # Plot fill_between for Sx, Sy, Sz above all previous plots by setting higher zorder
     ax.fill_between(
-        z_grid - solenoid_length / 2,
-        Angles_avg[:, 0] - Angles_std[:, 0],
-        Angles_avg[:, 0] + Angles_std[:, 0],
+        z_grid - Solenoid.length / 2,
+        (Angles_avg[:, 0] - Angles_std[:, 0]) / np.pi,
+        (Angles_avg[:, 0] + Angles_std[:, 0]) / np.pi,
         alpha=0.2,
         zorder=10,
         label=r"⟨$\theta$⟩ ± std",
@@ -132,9 +139,9 @@ if __name__ == "__main__":
         linestyle="--",
     )
     ax.fill_between(
-        z_grid - solenoid_length / 2,
-        Angles_avg[:, 1] - Angles_std[:, 1],
-        Angles_avg[:, 1] + Angles_std[:, 1],
+        z_grid - Solenoid.length / 2,
+        (Angles_avg[:, 1] - Angles_std[:, 1]) / np.pi,
+        (Angles_avg[:, 1] + Angles_std[:, 1]) / np.pi,
         alpha=0.2,
         zorder=10,
         label=r"⟨$\phi$⟩ ± std",
@@ -143,16 +150,13 @@ if __name__ == "__main__":
         linestyle="--",
     )
 
-    ax.axhline(np.pi, color="black", linestyle="--", linewidth=0.5, label=r"$\pi$")
-    ax.axhline(-np.pi, color="black", linestyle="--", linewidth=0.5, label=r"$-\pi$")
-
-    ax.set_xlim(-solenoid_length / 2, solenoid_length / 2)
+    ax.set_xlim(-Solenoid.length / 2, Solenoid.length / 2)
     ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
-    ax.set_ylabel("Phase Angles (radians)")
+    ax.set_ylabel(r"Phase Angles (radians/$\pi$)")
     ax.set_title(
         r"Classical Larmor Precession in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$,"
         f" {num_spins} spins,"
-        f" {int(solenoid_length / (dt * particle_velocity))} steps"
+        f" {int(Solenoid.length / (Solenoid.time_step * particle_velocity))} steps"
     )
     ax.legend()
     ax.grid(visible=True)
