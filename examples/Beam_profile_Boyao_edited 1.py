@@ -10,6 +10,7 @@ sigma_x = np.array([[0, 1], [1, 0]], dtype=complex)
 sigma_y = np.array([[0, -1j], [1j, 0]], dtype=complex)
 sigma_z = np.array([[1, 0], [0, -1]], dtype=complex)
 
+
 # Constants
 gamma_he = 2.037895e8  # gyromagnetic ratio of 3He (s^-1 T^-1)
 hbar = 1.05457e-34  # reduced Planck constant (J s)
