@@ -175,8 +175,6 @@ if __name__ == "__main__":
     ax.grid(visible=True)
 
     # Save the plot instead of showing it
-    output_path = (
-        "/workspaces/spinecho_sim/figures/classical_solenoid_components_plot.png"
-    )
+    output_path = "./examples/classical_solenoid.png"
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
     print(f"Plot saved to: {output_path}")
