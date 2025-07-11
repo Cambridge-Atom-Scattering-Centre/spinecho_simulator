@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -151,12 +152,9 @@ class SolenoidSimulator:
     ) -> tuple[NDArray[np.floating[Any]], NDArray[np.floating[Any]]]:
         """Run the spin echo simulation using configured parameters."""
         # Extract parameters with explicit type casting
-        dist_step = self.solenoid.dist_step
-        length = self.solenoid.length
         init_spin = self.solenoid.init_spin
-
         n: int = len(init_spin)
-        z_dist = np.arange(0, length, dist_step)
+        z_dist = np.arange(0, self.solenoid.length, self.solenoid.dist_step)
         steps = len(z_dist)
 
         # Initialize spin vector array (3D vectors over time)
@@ -167,65 +165,22 @@ class SolenoidSimulator:
             s[spin_idx, 0] = init_spin[spin_idx]  # Set initial spin state
 
             velocity: float = float(self.solenoid.velocity[spin_idx])
-
-            for i in range(steps - 1):
-                z_now = z_dist[i]
-                z_half = (
-                    z_dist[i] + 0.5 * (z_dist[i + 1] - z_now)
-                    if i + 1 < steps
-                    else z_now
-                )
-                # RK4 with position-dependent field
-                b1 = _get_field(z_now, self.solenoid)
-                k1 = _ds_dx(
-                    s[spin_idx, i],
-                    b1,
-                    self.solenoid,
-                    velocity,
-                    spin_idx,
-                    z_now,
-                )
-                b2 = _get_field(z_half, self.solenoid)
-                k2 = _ds_dx(
-                    s[spin_idx, i] + 0.5 * dist_step * k1,
-                    b2,
-                    self.solenoid,
-                    velocity,
-                    spin_idx,
-                    z_half,
-                )
-                k3 = _ds_dx(
-                    s[spin_idx, i] + 0.5 * dist_step * k2,
-                    b2,
-                    self.solenoid,
-                    velocity,
-                    spin_idx,
-                    z_half,
-                )
-                b4 = _get_field(
-                    z_dist[i + 1] if i + 1 < steps else z_now,
-                    self.solenoid,
-                )
-                k4 = _ds_dx(
-                    s[spin_idx, i] + dist_step * k3,
-                    b4,
-                    self.solenoid,
-                    velocity,
-                    spin_idx,
-                    z_dist[i + 1] if i + 1 < steps else z_now,
-                )
-                s[spin_idx, i + 1] = s[spin_idx, i] + (dist_step / 6.0) * (
-                    k1 + 2 * k2 + 2 * k3 + k4
-                )
+            # Integrate using solve_ivp
+            sol = solve_ivp(
+                fun=lambda z, s_vec: _dsdx(z, s_vec, self.solenoid, velocity, spin_idx),
+                t_span=(z_dist[0], z_dist[-1]),
+                y0=init_spin[spin_idx],
+                t_eval=z_dist,
+                method="RK45",  # or "RK23", "DOP853", etc.
+                vectorized=False,
+                rtol=1e-8,
+                # atol=1e-10,
+            )
+            s[spin_idx, :, :] = sol.y.T  # shape (steps, 3)
 
         return z_dist, s
 
 
-# --- Custom field support ---
-# field_param can be:
-# - a constant vector (list/array of 3)
-# - a callable: field(z) -> array_like shape (3,)
-# - a precomputed array: shape (n, max_steps, 3)
 def _get_field(
     z: float,
     solenoid: Solenoid,
@@ -241,21 +196,17 @@ def _off_axis_field(
     dz: float = 1e-5,
 ) -> NDArray[np.floating[Any]]:
     # Get B_0(z) and its derivatives numerically
-    b0_z = _get_field(z, solenoid)
+    b0_z = _get_field(z, solenoid)[2]  # Get the z-component of the field
 
-    # If B0_z is a vector, take the z-component
-    b0_z = np.asarray(b0_z)[2]
+    # Sample points for finite difference
+    z_points = np.array([z - dz, z, z + dz])
+    b_z_values = np.array([_get_field(zi, solenoid)[2] for zi in z_points])
 
-    # Get the derivatives numerically
-    b0_p = (
-        np.asarray(_get_field(z + dz, solenoid))[2]
-        - np.asarray(_get_field(z - dz, solenoid))[2]
-    ) / (2 * dz)
-    b0_pp = (
-        np.asarray(_get_field(z + dz, solenoid))[2]
-        - 2 * b0_z
-        + np.asarray(_get_field(z - dz, solenoid))[2]
-    ) / (dz**2)
+    # Use numpy.gradient for first and second derivatives
+    b0_p = np.gradient(b_z_values, dz)[1]  # First derivative at z
+    b0_pp = np.gradient(np.gradient(b_z_values, dz), dz)[1]  # Second derivative at z
+
+    b0_z = b_z_values[1]
 
     b_r = -0.5 * r * b0_p
     db_z = -0.25 * r**2 * b0_pp
@@ -264,25 +215,7 @@ def _off_axis_field(
 
 
 # Differential equation dS/dt = gamma * S x B
-def _ds_dx(
-    s_vec: NDArray[np.floating[Any]],
-    b_vec: NDArray[np.floating[Any]],
-    solenoid: Solenoid,
-    velocity: float = 1.0,
-    spin_idx: int = 0,
-    z: float = 0.0,
-) -> NDArray[np.floating[Any]]:
-    # Check if perp_dist is provided and not all zeros (i.e., at least one particle is off-axis)
-    if solenoid.perp_dist is not None and not np.allclose(solenoid.perp_dist, 0):
-        # perp_dist can be scalar or array; handle both
-
-        r = solenoid.perp_dist[spin_idx, 0]
-        theta = solenoid.perp_dist[spin_idx, 1]
-        b_vec = _off_axis_field(z, r, theta, solenoid)
-    return gyromagnetic_ratio * np.cross(s_vec, b_vec) / velocity
-
-
-def spin_rhs(
+def _dsdx(
     z: float,
     s_vec: NDArray[np.floating[Any]],
     solenoid: Solenoid,

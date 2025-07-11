@@ -18,7 +18,7 @@ if __name__ == "__main__":
     solenoid_length = 0.75  # Length of the solenoid in meters
     current = 0.01  # Current in Amperes
     B_0 = np.pi * magnetic_constant * current / (2 * solenoid_length)
-    num_spins = 20
+    num_spins = 50
     dx = particle_velocity / (100 * 2.04e8 * B_0)  # 100 time steps per Larmor period
 
     Solenoid = Solenoid(
