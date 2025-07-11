@@ -40,106 +40,46 @@ if __name__ == "__main__":
     sim = SolenoidSimulator(Solenoid)
     z, s = sim.run()
 
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Assign a distinct colormap for each spin component
-
-    colormaps = [
-        plt.cm.Blues,  # For Sx
-        plt.cm.Greens,  # For Sy
-        plt.cm.Reds,  # For Sz
-    ]
-    # For each component, generate a set of shades for all spins
-    component_colors = [cmap(np.linspace(0.3, 0.8, num_spins)) for cmap in colormaps]
-
-    for spin_idx in range(num_spins):
-        # Get the number of time steps for this spin
-        n_steps = len(z)
-        # Plot only the valid segment for this spin
-        ax.plot(
-            z - solenoid_length / 2,
-            s[spin_idx, :, 0],
-            # label=rf"$m_x$ (spin {spin_idx + 1})",
-            linewidth=1.0,
-            alpha=0.2,
-            color=component_colors[0][spin_idx],
-        )
-        ax.plot(
-            z - solenoid_length / 2,
-            s[spin_idx, :, 1],
-            # label=rf"$m_y$ (spin {spin_idx + 1})",
-            linewidth=1.0,
-            alpha=0.2,
-            color=component_colors[1][spin_idx],
-        )
-        ax.plot(
-            z - solenoid_length / 2,
-            s[spin_idx, :, 2],
-            # label=rf"$m_z$ (spin {spin_idx + 1})",
-            linewidth=1.0,
-            alpha=0.2,
-            color=component_colors[2][spin_idx],
-        )
-
     S_avg = s.mean(axis=0)
     S_std = s.std(axis=0)
 
-    ax.plot(
-        z - Solenoid.length / 2,
-        S_avg[:, 0],
-        label="⟨Sx⟩",
-        color=component_colors[0][spin_idx],
-    )
-    ax.plot(
-        z - Solenoid.length / 2,
-        S_avg[:, 1],
-        label="⟨Sy⟩",
-        color=component_colors[1][spin_idx],
-    )
-    ax.plot(
-        z - Solenoid.length / 2,
-        S_avg[:, 2],
-        label="⟨Sz⟩",
-        color=component_colors[2][spin_idx],
-    )
-    # Plot fill_between for Sx, Sy, Sz above all previous plots by setting higher zorder
-    ax.fill_between(
-        z - Solenoid.length / 2,
-        S_avg[:, 0] - S_std[:, 0],
-        S_avg[:, 0] + S_std[:, 0],
-        alpha=0.2,
-        zorder=10,
-        label="⟨Sx⟩ ± std",
-        color=component_colors[0][spin_idx],
-        linewidth=0.5,
-        linestyle="--",
-    )
-    ax.fill_between(
-        z - Solenoid.length / 2,
-        S_avg[:, 1] - S_std[:, 1],
-        S_avg[:, 1] + S_std[:, 1],
-        alpha=0.2,
-        zorder=10,
-        label="⟨Sy⟩ ± std",
-        color=component_colors[1][spin_idx],
-        linewidth=0.5,
-        linestyle="--",
-    )
-    ax.fill_between(
-        z - Solenoid.length / 2,
-        S_avg[:, 2] - S_std[:, 2],
-        S_avg[:, 2] + S_std[:, 2],
-        alpha=0.2,
-        zorder=10,
-        label="⟨Sz⟩ ± std",
-        color=component_colors[2][spin_idx],
-        linewidth=0.5,
-        linestyle="--",
-    )
+    # Precompute shifted z
+    z_shifted = z - Solenoid.length / 2
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    # Plot averages and std bands
+    for comp, label, color in zip(
+        range(3), ["⟨Sx⟩", "⟨Sy⟩", "⟨Sz⟩"], ["blue", "green", "red"], strict=False
+    ):
+        ax.plot(
+            z_shifted,
+            s[:, :, comp].T,  # shape (num_spins, steps)
+            linewidth=1.0,
+            alpha=0.1,
+            color=color,  # use a mid-tone for all
+        )
+        ax.plot(
+            z_shifted,
+            S_avg[:, comp],
+            label=label,
+            color=color,
+        )
+        ax.fill_between(
+            z_shifted,
+            S_avg[:, comp] - S_std[:, comp],
+            S_avg[:, comp] + S_std[:, comp],
+            alpha=0.2,
+            zorder=10,
+            label=f"{label} ± std",
+            color=color,
+            linewidth=0.5,
+            linestyle="--",
+        )
 
     Intensity = (S_avg[:, 0] ** 2 + S_avg[:, 1] ** 2) / (0.5**2)
     ax.plot(
-        z - Solenoid.length / 2,
+        z_shifted,
         Intensity,
         label=r"$I_\parallel =\langle S_x\rangle^2+\langle S_y\rangle^2$",
         color="black",
@@ -152,8 +92,7 @@ if __name__ == "__main__":
     ax.set_ylabel("Spin components")
     ax.set_title(
         r"Classical Larmor Precession in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$,"
-        f" {num_spins} spins,"
-        f" {int(Solenoid.length / dx)} steps"
+        f" {current}A, {num_spins} spins, {int(Solenoid.length / dx)} steps"
     )
     ax.legend(loc="lower right", fontsize="small")
     ax.grid(visible=True)
