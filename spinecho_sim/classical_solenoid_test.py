@@ -167,7 +167,9 @@ class SolenoidSimulator:
             velocity: float = float(self.solenoid.velocity[spin_idx])
             # Integrate using solve_ivp
             sol = solve_ivp(
-                fun=lambda z, s_vec: _dsdx(z, s_vec, self.solenoid, velocity, spin_idx),
+                fun=lambda z, s_vec, velocity=velocity, spin_idx=spin_idx: _dsdx(
+                    z, s_vec, self.solenoid, velocity, spin_idx
+                ),
                 t_span=(z_dist[0], z_dist[-1]),
                 y0=init_spin[spin_idx],
                 t_eval=z_dist,
