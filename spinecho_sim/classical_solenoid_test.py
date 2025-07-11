@@ -93,28 +93,10 @@ def sample_boltzmann_velocities(
 ) -> NDArray[np.floating[Any]]:
     k_b = 1  # 1.380649e-23  # Boltzmann constant (J/K)
 
-    def f(
-        v: NDArray[np.floating[Any]], temp: float, mass: float
-    ) -> NDArray[np.floating[Any]]:
-        return (
-            4
-            * np.pi
-            * v**2
-            * (mass / (2 * np.pi * k_b * temp)) ** (3 / 2)
-            * np.exp(-mass * v**2 / (2 * k_b * temp))
-        )
-
-    # Use the Maxwell-Boltzmann distribution to sample speeds
-    v_max: float = (
-        np.sqrt(8 * k_b * temp / (np.pi * mass)) * 5
-    )  # upper limit for speeds
-    v: NDArray[np.floating[Any]] = np.linspace(0, v_max, 1000)
-    cdf = np.cumsum(f(v, temp, mass))
-    cdf /= cdf[-1]
+    sigma = np.sqrt(k_b * temp / mass)
     rng = np.random.default_rng()
-    random_values = rng.random(n)
-    sampled_indices = np.searchsorted(cdf, random_values)
-    return v[sampled_indices]
+    velocities = rng.normal(loc=0, scale=sigma, size=(n, 3))
+    return np.linalg.norm(velocities, axis=1)
 
 
 def sample_gaussian_velocities(
