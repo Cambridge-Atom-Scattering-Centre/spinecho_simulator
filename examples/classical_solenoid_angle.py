@@ -3,7 +3,6 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim import SolenoidSimulator
 from spinecho_sim.classical_solenoid_test import (
     Solenoid,
     sample_disk,
@@ -21,7 +20,7 @@ if __name__ == "__main__":
     num_spins = 50
     dx = particle_velocity / (100 * 2.04e8 * B_0)  # 100 time steps per Larmor period
 
-    Solenoid = Solenoid(
+    params = Solenoid(
         solenoid_length,
         dx,
         sample_gaussian_velocities(
@@ -37,8 +36,7 @@ if __name__ == "__main__":
         ),
         sample_disk(num_spins, 1.16e-3),
     )
-    sim = SolenoidSimulator(Solenoid)
-    z, s = sim.run()
+    result = solenoid.simulate_trajectory()
 
     # Precompute shifted z
     z_shifted = z - solenoid_length / 2
@@ -54,11 +52,11 @@ if __name__ == "__main__":
     phi = np.unwrap(phi_wrapped, axis=1)
 
     # Assign to Angles_on_z (shape: steps, num_spins, 2)
-    Angles = np.stack([theta.T, phi.T], axis=2)  # shape (steps, num_spins, 2)
+    angles = np.stack([theta.T, phi.T], axis=2)  # shape (steps, num_spins, 2)
 
     # Compute mean and std over spins for each step and component
-    Angles_avg = Angles.mean(axis=1)  # shape (steps, 2)
-    Angles_std = Angles.std(axis=1)  # shape (steps, 2)
+    Angles_avg = angles.mean(axis=1)  # shape (steps, 2)
+    Angles_std = angles.std(axis=1)  # shape (steps, 2)
 
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -68,7 +66,7 @@ if __name__ == "__main__":
     ):
         ax.plot(
             z_shifted,
-            (Angles[:, :, comp] / np.pi),
+            (angles[:, :, comp] / np.pi),
             linewidth=1.0,
             alpha=0.1,
             color=color,
