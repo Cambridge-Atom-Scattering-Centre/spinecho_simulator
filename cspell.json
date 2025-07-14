@@ -21,7 +21,9 @@
         "ndarray",
         "twinx",
         "scipy",
-        "mathbf"
+        "mathbf",
+        "pycache",
+        "venv"
     ],
     "userWords": [
         "Larmor"
