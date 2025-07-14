@@ -65,7 +65,7 @@ class Solenoid:
 
         gyromagnetic_ratio = 2.04e8  # gyromagnetic ratio (rad s^-1 T^-1)
 
-        def _dsdx(
+        def _ds_dx(
             z: float,
             spin: tuple[float, float, float],
         ) -> NDArray[np.floating[Any]]:
@@ -75,7 +75,7 @@ class Solenoid:
             return (gyromagnetic_ratio / velocity) * np.cross(spin, field)
 
         sol = solve_ivp(  # type: ignore[return-value]
-            fun=_dsdx,
+            fun=_ds_dx,
             t_span=(z_points[0], z_points[-1]),
             y0=initial_state.spin.cartesian,
             t_eval=z_points,
@@ -158,10 +158,7 @@ def _get_field(
         return solenoid.field(z)
 
     # Assuming that there is no current in the solenoid, we can
-    # calculate the field at any point using grad.B = 0
-    # TODO: finish explaination, also integrate into field
-    # definition...
-    # Sample points for finite difference
+    # calculate the field at any point using grad.B = 0. We do this
     b_z_values = [solenoid.field(zi)[2] for zi in (z - dz, z, z + dz)]
 
     b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)

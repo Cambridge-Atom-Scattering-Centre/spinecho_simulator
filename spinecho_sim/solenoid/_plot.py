@@ -39,8 +39,8 @@ def plot_spin_component(
     std_spins = np.std(spins, axis=0)
     ax.fill_between(
         positions,
-        average_spins - std_spins,
-        average_spins + std_spins,
+        np.clip(average_spins - std_spins, -1, 1),
+        np.clip(average_spins + std_spins, -1, 1),
         alpha=0.2,
         linestyle="--",
         color=color,
@@ -61,7 +61,7 @@ def plot_spin_intensity(
     positions = result.positions
     spins = np.average(result.spins.cartesian, axis=0)
 
-    intensity = (spins[:, 0] ** 2 + spins[:, 1] ** 2) / (0.5**2)
+    intensity = spins[:, 0] ** 2 + spins[:, 1] ** 2
     (line,) = ax.plot(
         positions,
         intensity,
@@ -92,69 +92,61 @@ def plot_spin_phi(
 ) -> tuple[Figure | SubFigure, Axes]:
     fig, ax = get_figure(ax)
     positions = result.positions
-    phi = result.spins.phi
+    phi = np.unwrap(result.spins.phi, axis=1) / np.pi
     average_phi = np.average(phi, axis=0)
 
-    (average_line,) = ax.plot(
-        positions,
-        average_phi / np.pi,
-    )
+    (average_line,) = ax.plot(positions, average_phi)
     color = average_line.get_color()
+    average_line.set_label(r"$\langle \phi \rangle$")
 
-    ax.plot(
-        positions,
-        (phi / np.pi),
-        linewidth=1.0,
-        alpha=0.1,
-        color=color,
-    )
+    ax.plot(positions, (phi.T), alpha=0.1, color=color)
     std_spins = np.std(phi, axis=0)
     ax.fill_between(
         positions,
-        (average_phi - std_spins) / np.pi,
-        (average_phi + std_spins) / np.pi,
+        (average_phi - std_spins),
+        (average_phi + std_spins),
         alpha=0.2,
         linestyle="--",
         color=color,
     )
+    ax.set_xlim(positions[0], positions[-1])
+    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
+    ax.set_ylabel(r"Phase Angles (radians/$\pi$)")
     return fig, ax
 
 
-def plot_spin_theta(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    fig, ax = plt.subplots(figsize=(10, 6))
+def plot_spin_theta(
+    result: SolenoidSimulationResult, *, ax: Axes | None = None
+) -> tuple[Figure | SubFigure, Axes]:
+    fig, ax = get_figure(ax)
     positions = result.positions
-    theta = result.spins.theta
+    theta = np.unwrap(result.spins.theta, axis=1) / np.pi
     average_theta = np.average(theta, axis=0)
 
-    (average_line,) = ax.plot(
-        positions,
-        average_theta / np.pi,
-    )
+    (average_line,) = ax.plot(positions, average_theta)
     color = average_line.get_color()
+    average_line.set_label(r"$\langle \theta \rangle$")
 
-    ax.plot(
-        positions,
-        (theta / np.pi),
-        linewidth=1.0,
-        alpha=0.1,
-        color=color,
-    )
+    ax.plot(positions, theta.T, alpha=0.1, color=color)
     std_spins = np.std(theta, axis=0)
     ax.fill_between(
         positions,
-        (average_theta - std_spins) / np.pi,
-        (average_theta + std_spins) / np.pi,
+        (average_theta - std_spins),
+        (average_theta + std_spins),
         alpha=0.2,
         linestyle="--",
         color=color,
     )
+    ax.set_xlim(positions[0], positions[-1])
+    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
+    ax.set_ylabel(r"Phase Angles (radians/$\pi$)")
     return fig, ax
 
 
 def plot_spin_angles(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(10, 6))
-    for idx in range(3):
-        plot_spin_component(result, idx, ax=ax)
 
-    plot_spin_intensity(result, ax=ax.twinx())
+    plot_spin_theta(result, ax=ax)
+    plot_spin_phi(result, ax=ax)
+
     return fig, ax

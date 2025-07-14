@@ -99,11 +99,6 @@ class CoherentSpin:
     theta: float
     phi: float
 
-    def __post_init__(self) -> None:
-        assert not isinstance(self.theta, np.ndarray) and not isinstance(
-            self.phi, np.ndarray
-        ), "Theta and phi must be floats."
-
     @property
     def x(self) -> float:
         """Get the x-component of the spin vector."""
@@ -128,6 +123,7 @@ class CoherentSpin:
     def from_cartesian(x: float, y: float, z: float) -> CoherentSpin:
         """Create a Spin from Cartesian coordinates."""
         r = np.sqrt(x**2 + y**2 + z**2)
+        assert np.isclose(r, 1, rtol=1e-3), f"Spin vector must be normalized. r = {r}"
         return CoherentSpin(theta=np.arccos(z / r), phi=np.arctan2(y, x))
 
 
@@ -276,7 +272,7 @@ class TrajectoryList(Sequence[Trajectory]):
 
     def __post_init__(self) -> None:
         if (
-            self.spins.theta.ndim != 2
+            self.spins.theta.ndim != 2  # noqa: PLR2004
             or self.parallel_velocities.ndim != 1
             or self.parallel_velocities.shape != self.displacements.shape
             or self.parallel_velocities.size != self.spins.shape[0]
