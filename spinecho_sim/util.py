@@ -24,17 +24,45 @@ def get_figure(ax: Axes | None = None) -> tuple[Figure | SubFigure, Axes]:
 Measure = Literal["real", "imag", "abs", "arg"]
 
 
-def get_measure(arr: np.ndarray, measure: Measure) -> np.ndarray:
-    """Get a specific measure of a complex array."""
+def plot_measure(arr: np.ndarray, measure: Measure) -> tuple[np.ndarray, str]:
+    """Get the specified measure of an array."""
     if measure == "real":
-        return np.real(arr)
+        return np.real(arr), "Real part"
     if measure == "imag":
-        return np.imag(arr)
+        return np.imag(arr), "Imaginary part"
     if measure == "abs":
-        return np.abs(arr)
+        # return np.abs(arr), "Magnitude"
+        return _signed_mag_and_phase(arr)[0], "Magnitude"
     if measure == "arg":
-        return np.angle(arr)
+        # return np.unwrap(np.angle(arr), period=2 * np.pi) / np.pi, r"Phase $/\pi$"
+        return _signed_mag_and_phase(arr)[1] / np.pi, r"Phase $/\pi$"
     return None
+
+
+def _signed_mag_and_phase(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    arr_flat = arr.ravel()
+    n = arr_flat.size
+    phi = np.unwrap(np.angle(arr_flat))  # raw phase in (-π,π]
+    mag = np.abs(arr_flat)
+    m_signed = mag.copy()
+    phi_signed = phi.copy()
+
+    for k in range(1, n):
+        phase_change = phi_signed[k] - phi_signed[k - 1]
+        # detect a +π-jump
+        if phase_change > np.pi / 2:
+            print(phase_change)
+            print("+pi jump detected at index", k)
+            m_signed[k:] *= -1
+            phi_signed[k:] -= np.pi
+        # detect a -π-jump
+        elif phase_change < -np.pi / 2:
+            print(phase_change)
+            print("-pi jump detected at index", k)
+            m_signed[k:] *= -1
+            phi_signed[k:] += np.pi
+
+    return m_signed.reshape(arr.shape), phi_signed.reshape(arr.shape)
 
 
 def timed[**P, R](f: Callable[P, R]) -> Callable[P, R]:

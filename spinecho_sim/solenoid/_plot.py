@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 from matplotlib import pyplot as plt
 
-from spinecho_sim.util import Measure, get_figure, get_measure
+from spinecho_sim.util import Measure, get_figure, plot_measure
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -84,6 +84,7 @@ def plot_spin_intensity(
 
 
 def plot_spin_components(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+    assert result.spins.n_stars == 1, "Component plots only supports spin-1/2 systems"
     fig, ax = plt.subplots(figsize=(10, 6))
     for idx in range(3):
         plot_spin_component(result, idx, ax=ax)
@@ -161,6 +162,7 @@ def plot_spin_theta(
 
 
 def plot_spin_angles(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+    assert result.spins.n_stars == 1, "Component plots only supports spin-1/2 systems"
     fig, ax = plt.subplots(figsize=(10, 6))
 
     plot_spin_theta(result, ax=ax)
@@ -181,7 +183,7 @@ def plot_spin_state(
     positions = result.positions
     states = result.spins.momentum_states[idx, :, :]
 
-    average_state_measure = np.average(get_measure(states, measure)[0], axis=0)
+    average_state_measure = np.average(plot_measure(states, measure)[0], axis=0)
 
     n_stars = result.spins.n_stars
     s = n_stars / 2
@@ -197,18 +199,18 @@ def plot_spin_state(
     (measure_line,) = ax.plot(
         positions,
         average_state_measure,
-        label=f"{ms_labels[idx]}" + f"\n{get_measure(states, measure)[1]}",
+        label=f"{ms_labels[idx]}" + f"\n{plot_measure(states, measure)[1]}",
     )
     color_measure = measure_line.get_color()
     ax.plot(
         positions,
-        np.swapaxes(get_measure(states, measure)[0], 0, 1).reshape(positions.size, -1),
+        np.swapaxes(plot_measure(states, measure)[0], 0, 1).reshape(positions.size, -1),
         alpha=0.1,
         color=color_measure,
     )
 
     # Standard error of the mean for phase
-    std_states_measure = np.std(get_measure(states, measure)[0], axis=0) / np.sqrt(
+    std_states_measure = np.std(plot_measure(states, measure)[0], axis=0) / np.sqrt(
         len(states)
     )
     ax.fill_between(
@@ -230,33 +232,6 @@ def plot_spin_state(
     return fig, ax
 
 
-def get_measure(arr: np.ndarray, measure: str) -> tuple[np.ndarray, str]:
-    if measure == "real":
-        return np.real(arr), "Real part"
-    if measure == "imag":
-        return np.imag(arr), "Imaginary part"
-    if measure == "abs":
-        return np.abs(arr), "Magnitude"
-    if measure == "arg":
-        return np.unwrap(np.angle(arr), period=2 * np.pi) / np.pi, r"Phase$/2\pi$"
-    msg = f"Unknown measure: {measure}. Use 'real', 'imag', 'abs', or 'arg'."
-    raise ValueError(msg)
-
-
-def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    n_stars = result.spins.n_stars
-    fig, axes = plt.subplots(n_stars + 1, 1, figsize=(10, 6), sharex=True)
-
-    for idx, ax in enumerate(axes):
-        plot_spin_state(result, idx, "abs", ax=ax)
-        plot_spin_state(result, idx, "arg", ax=ax)
-        # plot_spin_state_arg(result, idx, ax=ax)
-        plot_state_intensity(result, idx, ax=ax.twinx())
-    axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
-    fig.tight_layout()
-    return fig, axes
-
-
 def plot_state_intensity(
     result: SolenoidSimulationResult, idx: int, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
@@ -264,7 +239,7 @@ def plot_state_intensity(
 
     positions = result.positions
     states = result.spins.momentum_states[idx]
-    average_state_abs = np.average(get_measure(states, "abs")[0], axis=0)
+    average_state_abs = np.average(np.abs(states), axis=0)
 
     (line,) = ax.plot(
         positions,
@@ -274,7 +249,7 @@ def plot_state_intensity(
     )
     ax.set_ylabel(r"$I_\parallel = |m_S\rangle$ Intensity")
     ax.set_xlim(positions[0], positions[-1])
-    ax.set_ylim(-1, 1)
+    ax.set_ylim(0, 1)
 
     return fig, ax, line
 
