@@ -18,10 +18,10 @@ from spinecho_sim.state import (
 
 if __name__ == "__main__":
     particle_velocity = 714
-    num_spins = 1
+    num_spins = 50
     initial_states = [
         ParticleState(
-            spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(),
+            spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
             displacement=displacement,
             parallel_velocity=velocity,
         )

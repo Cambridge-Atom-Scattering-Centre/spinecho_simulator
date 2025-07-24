@@ -40,29 +40,36 @@ def plot_measure(arr: np.ndarray, measure: Measure) -> tuple[np.ndarray, str]:
 
 
 def _signed_mag_and_phase(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-    arr_flat = arr.ravel()
-    n = arr_flat.size
-    phi = np.unwrap(np.angle(arr_flat))  # raw phase in (-π,π]
-    mag = np.abs(arr_flat)
-    m_signed = mag.copy()
-    phi_signed = phi.copy()
+    shape = arr.shape
+    n_particles = shape[0]
+    rest_shape = shape[1:]
 
-    for k in range(1, n):
-        phase_change = phi_signed[k] - phi_signed[k - 1]
-        # detect a +π-jump
-        if phase_change > np.pi / 2:
-            print(phase_change)
-            print("+pi jump detected at index", k)
-            m_signed[k:] *= -1
-            phi_signed[k:] -= np.pi
-        # detect a -π-jump
-        elif phase_change < -np.pi / 2:
-            print(phase_change)
-            print("-pi jump detected at index", k)
-            m_signed[k:] *= -1
-            phi_signed[k:] += np.pi
+    m_signed = np.empty_like(arr, dtype=np.float64)
+    phi_signed = np.empty_like(arr, dtype=np.float64)
 
-    return m_signed.reshape(arr.shape), phi_signed.reshape(arr.shape)
+    for i in range(n_particles):
+        arr_flat = np.asarray(arr[i].ravel(), dtype=np.complex128)
+        n = arr_flat.size
+        phi = np.unwrap(np.angle(arr_flat))  # raw phase in (-π,π]
+        mag = np.abs(arr_flat)
+        m_s = mag.copy()
+        phi_s = phi.copy()
+
+        for k in range(1, n):
+            phase_change = phi_s[k] - phi_s[k - 1]
+            # detect a +π-jump
+            if phase_change > np.pi / 2:
+                m_s[k:] *= -1
+                phi_s[k:] -= np.pi
+            # detect a -π-jump
+            elif phase_change < -np.pi / 2:
+                m_s[k:] *= -1
+                phi_s[k:] += np.pi
+
+        m_signed[i] = m_s.reshape(rest_shape)
+        phi_signed[i] = phi_s.reshape(rest_shape)
+
+    return m_signed, phi_signed
 
 
 def timed[**P, R](f: Callable[P, R]) -> Callable[P, R]:

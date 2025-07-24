@@ -217,17 +217,14 @@ def plot_spin_state(
         positions,
         (average_state_measure - std_states_measure).ravel(),
         (average_state_measure + std_states_measure).ravel(),
-        # np.clip(average_state_measure - std_states_measure, -1, 1).ravel(),
-        # np.clip(average_state_measure + std_states_measure, -1, 1).ravel(),
         alpha=0.2,
         linestyle=":",
         color=color_measure,
     )
 
     ax.set_ylabel(ms_labels[idx])
-    ax.legend(loc="center right")
+    ax.legend(loc="center left")
     ax.set_xlim(positions[0], positions[-1])
-    # ax.set_ylim(-np.pi, np.pi)
 
     return fig, ax
 
@@ -239,16 +236,18 @@ def plot_state_intensity(
 
     positions = result.positions
     states = result.spins.momentum_states[idx]
-    average_state_abs = np.average(np.abs(states), axis=0)
+    average_state_abs = np.average(np.abs(states) ** 2, axis=0)
 
     (line,) = ax.plot(
         positions,
         average_state_abs,
         color="black",
         linestyle="--",
+        label=r"$|m_S\rangle$ Intensity",
     )
-    ax.set_ylabel(r"$I_\parallel = |m_S\rangle$ Intensity")
+    ax.set_ylabel(r"$|m_S\rangle$ Intensity")
     ax.set_xlim(positions[0], positions[-1])
+    ax.legend(loc="center right")
     ax.set_ylim(0, 1)
 
     return fig, ax, line
