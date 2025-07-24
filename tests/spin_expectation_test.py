@@ -5,7 +5,7 @@ from typing import Any
 import numpy as np
 import pytest
 
-from spinecho_sim.measurement import transverse_expectation
+from spinecho_sim.measurement._spin_expectation import transverse_expectation
 
 
 @pytest.mark.parametrize(

@@ -9,6 +9,7 @@ import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 from tqdm import tqdm
 
+from spinecho_sim.measurement import SpinExpectationList
 from spinecho_sim.state import (
     ParticleDisplacement,
     ParticleDisplacementList,
@@ -178,6 +179,11 @@ class SolenoidSimulationResult:
     def displacements(self) -> ParticleDisplacementList:
         """Extract the displacements from the simulation states."""
         return self.trajectories.displacements
+
+    @property
+    def spin_expectations(self) -> SpinExpectationList:
+        """Extract the transverse spin expectation values from the simulation states."""
+        return SpinExpectationList.from_spins(self.trajectories.spins)
 
 
 def _get_field(

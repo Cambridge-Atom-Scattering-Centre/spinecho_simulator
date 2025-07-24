@@ -264,3 +264,30 @@ def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout()
     return fig, axes
+
+
+def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    positions = result.positions
+    spin_expectation_values = result.spin_expectations
+
+    ax.plot(
+        positions,
+        spin_expectation_values.x,
+        label=r"$\langle J_x \rangle$",
+        color="blue",
+    )
+    ax.plot(
+        positions,
+        spin_expectation_values.y,
+        label=r"$\langle J_y \rangle$",
+        color="orange",
+    )
+
+    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
+    ax.set_ylabel(r"Expectation Values")
+    ax.legend()
+    fig.tight_layout()
+
+    return fig, ax
