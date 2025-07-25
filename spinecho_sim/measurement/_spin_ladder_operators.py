@@ -10,8 +10,8 @@ if TYPE_CHECKING:
 
 def transverse_expectation(
     c: NDArray[np.complex128], hbar: float = 1.0
-) -> tuple[float, float]:
-    c = np.asarray(c, dtype=np.complex128)
+) -> tuple[float, float, float]:
+    """Return the expectation values of S_x, S_y, and S_z for a given state vector c."""
     two_j = c.size - 1
     j = two_j / 2
 
@@ -21,5 +21,10 @@ def transverse_expectation(
 
     j_plus = hbar * inner.sum()
     jx = j_plus.real
-    jy = j_plus.imag
-    return jx, jy
+    jy = -j_plus.imag
+
+    # S_z operator
+    m_z = np.arange(-j, j + 1)
+    jz = float(hbar * np.sum(np.abs(c) ** 2 * m_z))
+
+    return jx, jy, jz
