@@ -266,28 +266,70 @@ def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     return fig, axes
 
 
-def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    fig, ax = plt.subplots(figsize=(10, 6))
+def plot_expectation_value(
+    result: SolenoidSimulationResult,
+    idx: int,
+    *,
+    ax: Axes | None = None,
+) -> tuple[Figure | SubFigure, Axes]:
+    fig, ax = get_figure(ax)
 
     positions = result.positions
     spin_expectation_values = result.spin_expectations
+    print("spin_expectation_values.shape:", spin_expectation_values.shape)
 
+    if idx == 0:
+        exp = spin_expectation_values.x
+    elif idx == 1:
+        exp = spin_expectation_values.y
+    else:
+        msg = "Invalid index for spin expectation value"
+        raise ValueError(msg)
+
+    average_state_measure = np.average(exp, axis=0)
+    print("average_state_measure.shape:", average_state_measure.shape)
+    labels = [r"$\langle S_x \rangle$", r"$\langle S_y \rangle$"]
+
+    print("positions.shape:", positions.shape)
+    print("exp.shape:", exp.shape)
+
+    # Plot phase
+    (measure_line,) = ax.plot(
+        positions,
+        average_state_measure,
+        label=f"{labels[idx]}",
+    )
+    color_measure = measure_line.get_color()
     ax.plot(
         positions,
-        spin_expectation_values.x,
-        label=r"$\langle J_x \rangle$",
-        color="blue",
-    )
-    ax.plot(
-        positions,
-        spin_expectation_values.y,
-        label=r"$\langle J_y \rangle$",
-        color="orange",
+        np.swapaxes(exp, 0, 1).reshape(positions.size, -1),
+        alpha=0.1,
+        color=color_measure,
     )
 
-    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
-    ax.set_ylabel(r"Expectation Values")
-    ax.legend()
-    fig.tight_layout()
+    # Standard error of the mean for phase
+    std_states_measure = np.std(exp, axis=0) / np.sqrt(len(exp))
+    ax.fill_between(
+        positions,
+        (average_state_measure - std_states_measure).ravel(),
+        (average_state_measure + std_states_measure).ravel(),
+        alpha=0.2,
+        linestyle=":",
+        color=color_measure,
+    )
+
+    ax.set_ylabel(labels[idx])
+    ax.legend(loc="center left")
+    ax.set_xlim(positions[0], positions[-1])
 
     return fig, ax
+
+
+def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+    fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+
+    for idx, ax in enumerate(axes):
+        plot_expectation_value(result, idx, ax=ax)
+    axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
+    fig.tight_layout()
+    return fig, axes

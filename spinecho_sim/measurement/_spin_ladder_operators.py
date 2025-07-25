@@ -20,8 +20,8 @@ def transverse_expectation(
     inner = np.conjugate(c[:-1]) * c[1:] * factors
 
     j_plus = hbar * inner.sum()
-    jx = j_plus.real
-    jy = -j_plus.imag
+    jx = float(j_plus.real)
+    jy = float(-j_plus.imag)
 
     # S_z operator
     m_z = np.arange(-j, j + 1)

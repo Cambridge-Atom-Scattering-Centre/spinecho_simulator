@@ -7,6 +7,7 @@ from typing import Any, cast, overload, override
 import numpy as np
 from scipy.special import comb  # type: ignore[import]
 
+from spinecho_sim.measurement._spin_ladder_operators import transverse_expectation
 from spinecho_sim.state._majorana import majorana_stars
 
 
@@ -39,6 +40,14 @@ def _majorana_polynomial_components(
     binomial_weights = np.sqrt(np.asarray(comb(states.size, k), dtype=np.float64))
     state = coefficients / binomial_weights
     return state / np.linalg.norm(state)
+
+
+def get_spin_expectation_values(
+    state: np.ndarray[Any, np.dtype[np.complex128]],
+) -> tuple[float, float, float]:
+    # Compute expectation values from the momentum states of the input Spin
+    jx, jy, jz = transverse_expectation(state)
+    return jx, jy, jz
 
 
 class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
@@ -174,6 +183,14 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
         ]
         # Undo the flattening and reshape to match the original shape
         return np.stack(state_list, axis=-1).reshape(-1, *self.shape[:-1])  # type: ignore[return-value]
+
+    @property
+    def expectation_values[*S_](
+        self: Spin[tuple[*S_, int]],  # type: ignore[override]
+    ) -> list[tuple[float, float, float]]:
+        """Get the expectation values of the spin."""
+        momentum_states = self.momentum_states
+        return get_spin_expectation_values(momentum_states)
 
     @staticmethod
     def from_momentum_state(

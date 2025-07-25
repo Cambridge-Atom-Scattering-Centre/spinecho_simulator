@@ -30,7 +30,12 @@ class SpinExpectation:
     @staticmethod
     def from_spin(spin: np.ndarray[Any, np.dtype[np.complex128]]) -> SpinExpectation:
         """Create a SpinExpectation from a spin state."""
-        state = Spin.from_iter([CoherentSpin(theta=s[0], phi=s[1]) for s in spin])
+        # If spin is shape (2,), treat as a single coherent spin
+        spin = np.asarray(spin)
+        if spin.ndim == 1 and spin.shape == (2,):
+            state = Spin.from_iter([CoherentSpin(theta=spin[0], phi=spin[1])])
+        else:
+            state = Spin.from_iter([CoherentSpin(theta=s[0], phi=s[1]) for s in spin])
         expectation = transverse_expectation(state.momentum_states)
         return SpinExpectation(
             jx=expectation[0],
@@ -53,21 +58,27 @@ class SpinExpectationList(Sequence[SpinExpectation]):
     @staticmethod
     def from_expectations(
         expectations: Iterable[SpinExpectation],
+        shape: tuple[int, ...] | None = None,
     ) -> SpinExpectationList:
-        """Create a SpinExpectationList from a list of SpinExpectations."""
+        """Create a SpinExpectationList from a list of SpinExpectations, reshaping to the original spins shape if provided."""
         expectations = list(expectations)
-        return SpinExpectationList(
-            jx=np.array([e.jx for e in expectations]),
-            jy=np.array([e.jy for e in expectations]),
-        )
+        jx = np.array([e.jx for e in expectations])
+        jy = np.array([e.jy for e in expectations])
+        if shape is not None:
+            jx = jx.reshape(shape)
+            jy = jy.reshape(shape)
+        print("jx.shape:", jx.shape)
+        print("jy.shape:", jy.shape)
+        return SpinExpectationList(jx=jx, jy=jy)
 
     @staticmethod
     def from_spins(
         spins: Iterable[np.ndarray[Any, np.dtype[np.complex128]]],
     ) -> SpinExpectationList:
-        """Create a SpinExpectationList from a list of spin states."""
-        expectations = [SpinExpectation.from_spin(spin) for spin in spins]
-        return SpinExpectationList.from_expectations(expectations)
+        spins = np.asarray(spins)
+        print("spins.shape:", spins.shape)
+        expectations = [SpinExpectation.from_spin(s) for s in spins]
+        return SpinExpectationList.from_expectations(expectations, spins.shape)
 
     @override
     def __len__(self) -> int:
@@ -93,12 +104,12 @@ class SpinExpectationList(Sequence[SpinExpectation]):
     @property
     def x(self) -> np.ndarray[Any, np.dtype[np.floating]]:
         """Get the S_x expectation value of the particles."""
-        return np.array([expectation.jx for expectation in self])
+        return np.array([expectation.x for expectation in self])
 
     @property
     def y(self) -> np.ndarray[Any, np.dtype[np.floating]]:
         """Get the S_y expectation value of the particles."""
-        return np.array([expectation.jy for expectation in self])
+        return np.array([expectation.y for expectation in self])
 
     @property
     def shape(self) -> tuple[int, ...]:
