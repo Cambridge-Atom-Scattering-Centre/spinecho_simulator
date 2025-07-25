@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
 from functools import reduce
-from typing import Any, cast, overload, override
+from typing import Any, Literal, cast, overload, override
 
 import numpy as np
 from scipy.special import comb  # type: ignore[import]
 
-from spinecho_sim.measurement._spin_ladder_operators import transverse_expectation
+from spinecho_sim.measurement import transverse_expectation
 from spinecho_sim.state._majorana import majorana_stars
 
 
@@ -40,14 +40,6 @@ def _majorana_polynomial_components(
     binomial_weights = np.sqrt(np.asarray(comb(states.size, k), dtype=np.float64))
     state = coefficients / binomial_weights
     return state / np.linalg.norm(state)
-
-
-def get_spin_expectation_values(
-    state: np.ndarray[Any, np.dtype[np.complex128]],
-) -> tuple[float, float, float]:
-    # Compute expectation values from the momentum states of the input Spin
-    jx, jy, jz = transverse_expectation(state)
-    return jx, jy, jz
 
 
 class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
@@ -184,14 +176,6 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
         # Undo the flattening and reshape to match the original shape
         return np.stack(state_list, axis=-1).reshape(-1, *self.shape[:-1])  # type: ignore[return-value]
 
-    @property
-    def expectation_values[*S_](
-        self: Spin[tuple[*S_, int]],  # type: ignore[override]
-    ) -> list[tuple[float, float, float]]:
-        """Get the expectation values of the spin."""
-        momentum_states = self.momentum_states
-        return get_spin_expectation_values(momentum_states)
-
     @staticmethod
     def from_momentum_state(
         spin_coefficients: np.ndarray[tuple[int], np.dtype[np.complex128]],
@@ -223,6 +207,29 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
             dtype=np.float64,
         )
         return Spin(spins_array)  # type: ignore[return-value]
+
+
+def get_spin_expectation_values(
+    state: np.ndarray[Any, np.dtype[np.complex128]],
+) -> tuple[float, float, float]:
+    # Compute expectation values from the momentum states of the input Spin
+    jx, jy, jz = transverse_expectation(state)
+    return jx, jy, jz
+
+
+def expectation_values[*S_](
+    spins: Spin[tuple[*S_, int]],  # type: ignore[override]
+) -> np.ndarray[tuple[Literal[3], *S_], np.dtype[np.floating]]:  # type: ignore[override]
+    """Get the expectation values of the spin."""
+    momentum_states = spins.momentum_states
+    momentum_states = momentum_states.reshape(momentum_states.shape[0], -1)
+    expectation_values_list = [
+        get_spin_expectation_values(momentum_states[:, i])
+        for i in range(momentum_states.shape[1])
+    ]
+    return np.stack(expectation_values_list, axis=-1, dtype=np.float64).reshape(
+        3, *spins.shape[:-1]
+    )  # type: ignore[return-value]
 
 
 class CoherentSpin(Spin[tuple[()]]):

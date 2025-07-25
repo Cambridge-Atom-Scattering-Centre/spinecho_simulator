@@ -5,19 +5,19 @@ from typing import Any
 import numpy as np
 import pytest
 
-from spinecho_sim.measurement._spin_expectation import transverse_expectation
+from spinecho_sim.measurement import transverse_expectation
 
 
 @pytest.mark.parametrize(
     ("c", "expected_jx", "expected_jy", "expected_jz"),
-    # order of state components is m_s=[-j, -j+1, ..., j-1, j]
+    # order of state components is m_s=[j, j-1, ..., -j+1, -j]
     [
-        (np.array([0, 1], dtype=np.complex128), 0.0, 0.0, 0.5),  # |+z>
-        (np.array([1, 0], dtype=np.complex128), 0.0, 0.0, -0.5),  # |-z>
+        (np.array([1, 0], dtype=np.complex128), 0.0, 0.0, 0.5),  # |+z>
+        (np.array([0, 1], dtype=np.complex128), 0.0, 0.0, -0.5),  # |-z>
         (np.array([1, 1], dtype=np.complex128) / np.sqrt(2), 0.5, 0.0, 0.0),  # |+x>
-        (np.array([-1, 1], dtype=np.complex128) / np.sqrt(2), -0.5, 0.0, 0.0),  # |-x>
-        (np.array([1j, 1], dtype=np.complex128) / np.sqrt(2), 0.0, 0.5, 0.0),  # |+y>
-        (np.array([-1j, 1], dtype=np.complex128) / np.sqrt(2), 0.0, -0.5, 0.0),  # |-y>
+        (np.array([1, -1], dtype=np.complex128) / np.sqrt(2), -0.5, 0.0, 0.0),  # |-x>
+        (np.array([1, 1j], dtype=np.complex128) / np.sqrt(2), 0.0, 0.5, 0.0),  # |+y>
+        (np.array([1, -1j], dtype=np.complex128) / np.sqrt(2), 0.0, -0.5, 0.0),  # |-y>
     ],
 )
 def test_spin_half_eigenstates(
@@ -49,8 +49,8 @@ def test_spin_half_eigenstates(
     ("c", "expected_jx", "expected_jy", "expected_jz"),
     # order of state components is m_s=[-j, -j+1, ..., j-1, j]
     [
-        (np.array([0, 0, 1], dtype=np.complex128), 0.0, 0.0, 1.0),  # |z:+1>
-        (np.array([1, 0, 0], dtype=np.complex128), 0.0, 0.0, -1.0),  # |z:-1>
+        (np.array([1, 0, 0], dtype=np.complex128), 0.0, 0.0, 1.0),  # |z:+1>
+        (np.array([0, 0, 1], dtype=np.complex128), 0.0, 0.0, -1.0),  # |z:-1>
         (np.array([0, 1, 0], dtype=np.complex128), 0.0, 0.0, 0.0),  # |z:0>
         (
             np.array([1, np.sqrt(2), 1], dtype=np.complex128) / 2,
@@ -59,7 +59,7 @@ def test_spin_half_eigenstates(
             0.0,
         ),  # |x:+1>
         (
-            np.array([1, 0, -1], dtype=np.complex128) / np.sqrt(2),
+            np.array([-1, 0, 1], dtype=np.complex128) / np.sqrt(2),
             0.0,
             0.0,
             0.0,
@@ -71,14 +71,14 @@ def test_spin_half_eigenstates(
             0.0,
         ),  # |x:-1>
         (
-            np.array([-1, 1j * np.sqrt(2), 1], dtype=np.complex128) / 2,
+            np.array([1, 1j * np.sqrt(2), -1], dtype=np.complex128) / 2,
             0,
             1,
             0.0,
         ),  # |y:+1>
         (np.array([1, 0, 1], dtype=np.complex128) / np.sqrt(2), 0, 0, 0.0),  # |y:0>
         (
-            np.array([-1, -1j * np.sqrt(2), 1], dtype=np.complex128) / 2,
+            np.array([1, -1j * np.sqrt(2), -1], dtype=np.complex128) / 2,
             0,
             -1,
             0.0,

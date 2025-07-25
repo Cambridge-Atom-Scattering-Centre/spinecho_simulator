@@ -187,7 +187,7 @@ def plot_spin_state(
 
     n_stars = result.spins.n_stars
     s = n_stars / 2
-    ms_values = np.linspace(-s, s, n_stars + 1, endpoint=True)
+    ms_values = np.linspace(s, -s, n_stars + 1, endpoint=True)
     ms_labels = [
         rf"$|m_S={int(m)} \rangle$"
         if m.is_integer()
@@ -275,23 +275,14 @@ def plot_expectation_value(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    spin_expectation_values = result.spin_expectations
-    print("spin_expectation_values.shape:", spin_expectation_values.shape)
+    expectation_values = result.spin_expectations[idx, :]
 
-    if idx == 0:
-        exp = spin_expectation_values.x
-    elif idx == 1:
-        exp = spin_expectation_values.y
-    else:
-        msg = "Invalid index for spin expectation value"
-        raise ValueError(msg)
-
-    average_state_measure = np.average(exp, axis=0)
-    print("average_state_measure.shape:", average_state_measure.shape)
-    labels = [r"$\langle S_x \rangle$", r"$\langle S_y \rangle$"]
-
-    print("positions.shape:", positions.shape)
-    print("exp.shape:", exp.shape)
+    average_state_measure = np.average(expectation_values, axis=0)
+    labels = [
+        r"$\langle S_x \rangle$",
+        r"$\langle S_y \rangle$",
+        r"$\langle S_z \rangle$",
+    ]
 
     # Plot phase
     (measure_line,) = ax.plot(
@@ -302,13 +293,15 @@ def plot_expectation_value(
     color_measure = measure_line.get_color()
     ax.plot(
         positions,
-        np.swapaxes(exp, 0, 1).reshape(positions.size, -1),
+        np.swapaxes(expectation_values, 0, 1).reshape(positions.size, -1),
         alpha=0.1,
         color=color_measure,
     )
 
     # Standard error of the mean for phase
-    std_states_measure = np.std(exp, axis=0) / np.sqrt(len(exp))
+    std_states_measure = np.std(expectation_values, axis=0) / np.sqrt(
+        len(expectation_values)
+    )
     ax.fill_between(
         positions,
         (average_state_measure - std_states_measure).ravel(),
@@ -326,7 +319,7 @@ def plot_expectation_value(
 
 
 def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    fig, axes = plt.subplots(2, 1, figsize=(10, 6), sharex=True)
+    fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
 
     for idx, ax in enumerate(axes):
         plot_expectation_value(result, idx, ax=ax)

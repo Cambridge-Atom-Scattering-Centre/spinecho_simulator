@@ -31,10 +31,8 @@ def plot_measure(arr: np.ndarray, measure: Measure) -> tuple[np.ndarray, str]:
     if measure == "imag":
         return np.imag(arr), "Imaginary part"
     if measure == "abs":
-        # return np.abs(arr), "Magnitude"
         return _signed_mag_and_phase(arr)[0], "Magnitude"
     if measure == "arg":
-        # return np.unwrap(np.angle(arr), period=2 * np.pi) / np.pi, r"Phase $/\pi$"
         return _signed_mag_and_phase(arr)[1] / np.pi, r"Phase $/\pi$"
     return None
 

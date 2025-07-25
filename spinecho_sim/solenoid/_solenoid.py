@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 from tqdm import tqdm
 
-from spinecho_sim.measurement import SpinExpectationList
 from spinecho_sim.state import (
     ParticleDisplacement,
     ParticleDisplacementList,
@@ -18,6 +17,7 @@ from spinecho_sim.state import (
     Trajectory,
     TrajectoryList,
 )
+from spinecho_sim.state._spin import expectation_values
 from spinecho_sim.util import timed
 
 if TYPE_CHECKING:
@@ -181,9 +181,11 @@ class SolenoidSimulationResult:
         return self.trajectories.displacements
 
     @property
-    def spin_expectations(self) -> SpinExpectationList:
+    def spin_expectations(
+        self,
+    ) -> np.ndarray[tuple[Literal[3], int, int], np.dtype[np.floating]]:
         """Extract the transverse spin expectation values from the simulation states."""
-        return SpinExpectationList.from_spins(self.trajectories.spins)
+        return expectation_values(self.trajectories.spins)
 
 
 def _get_field(

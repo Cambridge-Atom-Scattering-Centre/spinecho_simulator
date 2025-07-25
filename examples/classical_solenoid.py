@@ -7,9 +7,7 @@ from spinecho_sim import (
     ParticleState,
     Solenoid,
 )
-from spinecho_sim.solenoid import (
-    plot_spin_states,
-)
+from spinecho_sim.solenoid import plot_expectation_values, plot_spin_states
 from spinecho_sim.state import (
     CoherentSpin,
     sample_gaussian_velocities,
@@ -18,7 +16,7 @@ from spinecho_sim.state import (
 
 if __name__ == "__main__":
     particle_velocity = 714
-    num_spins = 5
+    num_spins = 10
     initial_states = [
         ParticleState(
             spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=1),
@@ -62,7 +60,8 @@ if __name__ == "__main__":
     # plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     fig, ax = plot_spin_states(result)
+    print(result.spin_expectations)
 
-    # fig, ax = plot_expectation_values(result)
+    fig, ax = plot_expectation_values(result)
 
     plt.show()

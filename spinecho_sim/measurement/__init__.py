@@ -2,12 +2,8 @@
 
 from __future__ import annotations
 
-from spinecho_sim.measurement._spin_expectation import (
-    SpinExpectation,
-    SpinExpectationList,
-)
+from spinecho_sim.measurement._spin_ladder_operators import transverse_expectation
 
 __all__ = [
-    "SpinExpectation",
-    "SpinExpectationList",
+    "transverse_expectation",
 ]

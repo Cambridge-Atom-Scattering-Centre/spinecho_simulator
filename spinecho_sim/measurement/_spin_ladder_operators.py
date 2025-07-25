@@ -21,10 +21,10 @@ def transverse_expectation(
 
     j_plus = hbar * inner.sum()
     jx = float(j_plus.real)
-    jy = float(-j_plus.imag)
+    jy = float(j_plus.imag)
 
     # S_z operator
     m_z = np.arange(-j, j + 1)
-    jz = float(hbar * np.sum(np.abs(c) ** 2 * m_z))
+    jz = float(hbar * np.sum(np.abs(c) ** 2 * m_z[::-1]))
 
     return jx, jy, jz
