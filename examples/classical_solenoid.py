@@ -39,26 +39,6 @@ if __name__ == "__main__":
     )
     result = solenoid.simulate_trajectories(initial_states, n_steps=1000)
 
-    # fig, ax = plot_spin_components(result)
-    # ax.set_title(
-    #     r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins"
-    # )
-    # ax.legend(loc="lower right", fontsize="small")
-
-    # output_path = "./examples/classical_solenoid.cartesian.png"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
-
-    # fig, ax = plot_spin_angles(result)
-    # ax.set_title(
-    #     r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins"
-    # )
-    # ax.legend(loc="lower right", fontsize="small")
-
-    # output_path = "./examples/classical_solenoid.angle.png"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
-
     fig, ax = plot_spin_states(result)
     print(result.spin_expectations)
 
