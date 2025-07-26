@@ -17,7 +17,7 @@ class ParticleState:
     spin: GenericSpin
     displacement: ParticleDisplacement
     parallel_velocity: np.float64
-    gyromagnetic_ratio: float = -2.04e8  # <-- new field with default
+    gyromagnetic_ratio: float = -2.04e8  # default value for 3He
 
     def as_coherent(self) -> list[CoherentParticleState]:
         """Convert to a CoherentParticleState."""
@@ -26,7 +26,7 @@ class ParticleState:
                 spin=s.as_generic(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
-                gyromagnetic_ratio=self.gyromagnetic_ratio,  # pass through
+                gyromagnetic_ratio=self.gyromagnetic_ratio,
             )
             for s in self.spin.flat_iter()
         ]

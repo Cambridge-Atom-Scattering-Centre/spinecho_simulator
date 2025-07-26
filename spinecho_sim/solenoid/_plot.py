@@ -345,7 +345,15 @@ def plot_expectation_trajectory_3d(
     z = avg_expectations[2, :]
 
     # Plot the trajectory as a 3D curve
-    ax.plot(x, y, z, label="Average Spin Expectation Trajectory")
+    (average_line,) = ax.plot(x, y, z, label=r"Average $\langle \mathbf{S} \rangle$")
+    color = average_line.get_color()
+    ax.plot(
+        np.swapaxes(expectations[0], 0, 1).reshape(expectations[0].size, -1),
+        np.swapaxes(expectations[1], 0, 1).reshape(expectations[1].size, -1),
+        np.swapaxes(expectations[2], 0, 1).reshape(expectations[2].size, -1),
+        alpha=0.1,
+        color=color,
+    )
 
     ax.set_xlabel(r"$\langle S_x \rangle$")
     ax.set_ylabel(r"$\langle S_y \rangle$")
