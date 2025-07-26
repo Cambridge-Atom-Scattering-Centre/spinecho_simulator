@@ -47,7 +47,7 @@ def test_spin_half_eigenstates(
 
 @pytest.mark.parametrize(
     ("c", "expected_jx", "expected_jy", "expected_jz"),
-    # order of state components is m_s=[-j, -j+1, ..., j-1, j]
+    # order of state components is m_s=[j, j-1, ..., -j+1, -j]
     [
         (np.array([1, 0, 0], dtype=np.complex128), 0.0, 0.0, 1.0),  # |z:+1>
         (np.array([0, 0, 1], dtype=np.complex128), 0.0, 0.0, -1.0),  # |z:-1>
