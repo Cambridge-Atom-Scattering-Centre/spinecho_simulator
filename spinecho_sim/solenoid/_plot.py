@@ -358,7 +358,6 @@ def plot_expectation_trajectory_3d(
     ax.set_xlabel(r"$\langle S_x \rangle$")
     ax.set_ylabel(r"$\langle S_y \rangle$")
     ax.set_zlabel(r"$\langle S_z \rangle$")
-    ax.set_title("Average Spin Expectation Value Trajectory")
     ax.legend()
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
     return fig, ax

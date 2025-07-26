@@ -23,7 +23,7 @@ if __name__ == "__main__":
     num_spins = 10
     initial_states = [
         ParticleState(
-            spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
+            spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=1),
             # spin=Spin.from_momentum_state(np.array([1, -1])),
             displacement=displacement,
             parallel_velocity=velocity,
@@ -44,22 +44,41 @@ if __name__ == "__main__":
     )
     result = solenoid.simulate_trajectories(initial_states, n_steps=1000)
 
+    n_stars = result.spins.n_stars
+    S = n_stars / 2
+    S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
+
     fig, ax = plot_spin_states(result)
     fig.suptitle(
-        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$, "
-        f"{num_spins} spins",
+        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field"
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = "./examples/classical_solenoid.state.png"
+    output_path = (
+        f"./examples/classical_solenoid.state.{num_spins}-spins_S-{S_label}.png"
+    )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     fig, ax = plot_expectation_values(result)
     fig.suptitle(
-        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field $\mathbf{B} \approx B_0 \mathbf{z}$, "
-        f"{num_spins} spins",
+        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field"
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = "./examples/classical_solenoid.expectation.png"
+    output_path = (
+        f"./examples/classical_solenoid.expectation.{num_spins}-spins_S-{S_label}.png"
+    )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
-    fix, ax = plot_expectation_trajectory_3d(result)
+    fig, ax = plot_expectation_trajectory_3d(result)
+    fig.suptitle(
+        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field"
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $S={S_label}$",
+    )
+    output_path = (
+        f"./examples/classical_solenoid.trajectory.{num_spins}-spins_S-{S_label}.png"
+    )
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     plt.show()
