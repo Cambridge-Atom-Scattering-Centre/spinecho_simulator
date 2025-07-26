@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure, SubFigure
     from matplotlib.lines import Line2D
+    from mpl_toolkits.mplot3d import Axes3D  # type: ignore[import-untyped]
 
     from spinecho_sim.solenoid._solenoid import SolenoidSimulationResult
 
@@ -223,7 +224,7 @@ def plot_spin_state(
     )
 
     ax.set_ylabel(ms_labels[idx])
-    ax.legend(loc="center left")
+    ax.legend(loc="lower right")
     ax.set_xlim(positions[0], positions[-1])
 
     return fig, ax
@@ -248,21 +249,21 @@ def plot_state_intensity(
     ax.set_ylabel(r"$|m_S\rangle$ Intensity")
     ax.set_xlim(positions[0], positions[-1])
     ax.legend(loc="center right")
-    ax.set_ylim(0, 1)
 
     return fig, ax, line
 
 
 def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     n_stars = result.spins.n_stars
-    fig, axes = plt.subplots(n_stars + 1, 1, figsize=(10, 6), sharex=True)
+    fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
-    for idx, ax in enumerate(axes):
-        plot_spin_state(result, idx, measure="abs", ax=ax)
-        plot_spin_state(result, idx, measure="arg", ax=ax)
-        plot_state_intensity(result, idx, ax=ax.twinx())
-    axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
-    fig.tight_layout()
+    for idx, (ax_abs, ax_arg) in enumerate(axes):
+        plot_spin_state(result, idx, measure="abs", ax=ax_abs)
+        plot_spin_state(result, idx, measure="arg", ax=ax_arg)
+        # plot_state_intensity(result, idx, ax=ax_abs.twinx())
+    for ax in axes[-1]:
+        ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
     return fig, axes
 
 
@@ -279,9 +280,9 @@ def plot_expectation_value(
 
     average_state_measure = np.average(expectation_values, axis=0)
     labels = [
-        r"$\langle S_x \rangle$",
-        r"$\langle S_y \rangle$",
-        r"$\langle S_z \rangle$",
+        r"$\langle S_x \rangle / \hbar$",
+        r"$\langle S_y \rangle / \hbar$",
+        r"$\langle S_z \rangle / \hbar$",
     ]
 
     # Plot phase
@@ -324,5 +325,32 @@ def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, A
     for idx, ax in enumerate(axes):
         plot_expectation_value(result, idx, ax=ax)
     axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
-    fig.tight_layout()
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
     return fig, axes
+
+
+def plot_expectation_trajectory_3d(
+    result: SolenoidSimulationResult,
+) -> tuple[Figure, Axes3D]:
+    fig = plt.figure(figsize=(10, 6))
+    ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
+
+    expectations = result.spin_expectations  # shape: (3, n_samples, n_positions)
+    # Average over samples (axis=1), shape: (3, n_positions)
+    avg_expectations = np.average(expectations, axis=1)
+
+    # Unpack components
+    x = avg_expectations[0, :]
+    y = avg_expectations[1, :]
+    z = avg_expectations[2, :]
+
+    # Plot the trajectory as a 3D curve
+    ax.plot(x, y, z, label="Average Spin Expectation Trajectory")
+
+    ax.set_xlabel(r"$\langle S_x \rangle$")
+    ax.set_ylabel(r"$\langle S_y \rangle$")
+    ax.set_zlabel(r"$\langle S_z \rangle$")
+    ax.set_title("Average Spin Expectation Value Trajectory")
+    ax.legend()
+    fig.tight_layout()
+    return fig, ax
