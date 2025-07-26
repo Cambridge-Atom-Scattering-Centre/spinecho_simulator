@@ -66,7 +66,9 @@ class Solenoid:
     ]:
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
-        gyromagnetic_ratio = -2.04e8  # gyromagnetic ratio for 3He (rad s^-1 T^-1)
+        gyromagnetic_ratio = (
+            initial_state.gyromagnetic_ratio
+        )  # gyromagnetic ratio for 3He (rad s^-1 T^-1)
         effective_ratio = gyromagnetic_ratio / initial_state.parallel_velocity
 
         def _d_angles_dx(
