@@ -20,7 +20,7 @@ class Trajectory(Sequence[Any]):
 
     spins: GenericSpinList
     displacement: ParticleDisplacement
-    parallel_velocity: np.float64
+    parallel_velocity: float
 
     @staticmethod
     def from_states(

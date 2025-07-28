@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 from matplotlib import pyplot as plt
 
+from spinecho_sim.state import get_expectation_values
 from spinecho_sim.util import Measure, get_figure, plot_measure
 
 if TYPE_CHECKING:
@@ -283,7 +284,7 @@ def plot_expectation_value(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = result.spin_expectations[idx, :]
+    expectation_values = get_expectation_values(result.spins)[idx, :]
 
     average_state_measure = np.average(expectation_values, axis=0)
     labels = [
@@ -346,7 +347,7 @@ def plot_expectation_phi(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = result.spin_expectations
+    expectation_values = get_expectation_values(result.spins)
 
     wrapped_phi = np.arctan2(
         expectation_values[1, :], expectation_values[0, :]
@@ -394,7 +395,7 @@ def plot_expectation_theta(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = result.spin_expectations
+    expectation_values = get_expectation_values(result.spins)
 
     wrapped_theta = np.arctan2(
         np.sqrt(expectation_values[0, :] ** 2 + expectation_values[1, :] ** 2),
@@ -452,7 +453,7 @@ def plot_expectation_trajectory_3d(
     fig = plt.figure(figsize=(6, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = result.spin_expectations  # shape: (3, n_samples, n_positions)
+    expectations = get_expectation_values(result.spins)
     # Average over samples (axis=1), shape: (3, n_positions)
     avg_expectations = np.average(expectations, axis=1)
 

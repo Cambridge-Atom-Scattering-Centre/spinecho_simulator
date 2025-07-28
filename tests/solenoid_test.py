@@ -113,3 +113,83 @@ def test_simulate_trajectory() -> None:
         expected.spins.cartesian,
         atol=1e-4,
     )
+
+
+def test_simulate_trajectories() -> None:
+    particle_velocity = 714
+
+    initial_state = ParticleState(
+        spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
+        displacement=sample_uniform_displacement(1, 1.16e-3)[0],
+        parallel_velocity=sample_gaussian_velocities(
+            1, particle_velocity, 0.225 * particle_velocity
+        )[0],
+    )
+    solenoid = Solenoid.from_experimental_parameters(
+        length=0.75,
+        magnetic_constant=3.96e-3,
+        current=0.01,
+    )
+    result = solenoid.simulate_trajectories([initial_state], n_steps=300)
+    expected = solenoid.simulate_trajectory(initial_state, n_steps=300)
+
+    # Both theta and phi should be the same for all stars
+    np.testing.assert_allclose(
+        result.spins.theta[0, ..., 0],
+        expected.spins.theta[..., 1],
+        atol=1e-4,
+    )
+    np.testing.assert_allclose(
+        result.spins.phi[0, ..., 0],
+        expected.spins.phi[..., 1],
+        atol=1e-4,
+    )
+
+
+def test_simulate_trajectory_high_spin() -> None:
+    particle_velocity = 714
+
+    initial_state = ParticleState(
+        spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
+        displacement=sample_uniform_displacement(1, 1.16e-3)[0],
+        parallel_velocity=sample_gaussian_velocities(
+            1, particle_velocity, 0.225 * particle_velocity
+        )[0],
+    )
+    solenoid = Solenoid.from_experimental_parameters(
+        length=0.75,
+        magnetic_constant=3.96e-3,
+        current=0.01,
+    )
+    result = solenoid.simulate_trajectory(initial_state, n_steps=300)
+
+    # Both theta and phi should be the same for all stars
+    np.testing.assert_allclose(
+        result.spins.theta[..., 0],
+        result.spins.theta[..., 1],
+        atol=1e-4,
+    )
+    np.testing.assert_allclose(
+        result.spins.phi[..., 0],
+        result.spins.phi[..., 1],
+        atol=1e-4,
+    )
+
+    initial_state_1 = ParticleState(
+        spin=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=1),
+        displacement=initial_state.displacement,
+        parallel_velocity=initial_state.parallel_velocity,
+    )
+    result_1 = solenoid.simulate_trajectory(initial_state_1, n_steps=300)
+
+    # Both theta and phi should be the same for all stars
+    np.testing.assert_allclose(
+        result_1.spins.theta[..., 0],
+        result.spins.theta[..., 1],
+        atol=1e-4,
+    )
+    np.testing.assert_allclose(
+        result_1.spins.phi[..., 0],
+        result.spins.phi[..., 1],
+        atol=1e-4,
+    )

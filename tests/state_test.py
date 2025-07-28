@@ -8,8 +8,10 @@ import pytest
 from spinecho_sim.state import (
     CoherentSpin,
     Spin,
-    expectation_values,
+    get_expectation_values,
 )
+from spinecho_sim.state._displacement import ParticleDisplacement
+from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
 
 
 @pytest.mark.parametrize(
@@ -64,7 +66,7 @@ def test_expectation_of_known_states(
     expected_jy: float,
     expected_jz: float,
 ) -> None:
-    jx, jy, jz = expectation_values(Spin.from_momentum_state(c))
+    jx, jy, jz = get_expectation_values(Spin.from_momentum_state(c))
     np.testing.assert_array_almost_equal(
         jx,
         expected_jx,
@@ -90,9 +92,84 @@ def test_expectation_coherent_state(n_stars: int) -> None:
     spin = CoherentSpin(theta=theta, phi=phi)
 
     generic_spin = spin.as_generic(n_stars=n_stars)
-    expectation = expectation_values(generic_spin)
+    expectation = get_expectation_values(generic_spin)
 
     jx, jy, jz = 2 * expectation / n_stars
     np.testing.assert_array_almost_equal(jx, spin.x, err_msg="Incorrect Jx")
     np.testing.assert_array_almost_equal(jy, spin.y, err_msg="Incorrect Jy")
     np.testing.assert_array_almost_equal(jz, spin.z, err_msg="Incorrect Jz")
+
+
+@pytest.mark.parametrize("n_stars", [1, 2, 3, 4, 5])
+def test_expectation_large_state(n_stars: int) -> None:
+    rng = np.random.default_rng()
+    theta = rng.uniform(0, np.pi, (1, 1001))
+    phi = rng.uniform(0, 2 * np.pi, (1, 1001))
+    spins = np.stack(
+        [
+            np.repeat(theta[..., np.newaxis], n_stars, axis=-1),
+            np.repeat(phi[..., np.newaxis], n_stars, axis=-1),
+        ],
+        axis=-1,
+    )
+    spin = Spin(spins)
+    assert spin.n_stars == n_stars
+
+    expectation = get_expectation_values(spin)  # type: ignore[return-value]
+
+    jx, jy, jz = 2 * expectation / n_stars
+    np.testing.assert_array_almost_equal(jx, spin.x[..., 0], err_msg="Incorrect Jx")
+    np.testing.assert_array_almost_equal(jy, spin.y[..., 0], err_msg="Incorrect Jy")
+    np.testing.assert_array_almost_equal(jz, spin.z[..., 0], err_msg="Incorrect Jz")
+
+
+def test_spin_from_iter() -> None:
+    # Test that Spin.from_iter can handle a list of Spin objects
+    spins = [
+        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
+        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=2),
+    ]
+    assert spins[0].shape == (2,)
+
+    from_iter = Spin.from_iter(spins)
+    assert from_iter.shape == (2, 2)
+
+    from_iter_deep = Spin.from_iter([from_iter])
+    assert from_iter_deep.shape == (1, 2, 2)
+
+    np.testing.assert_array_equal(
+        from_iter.theta[..., 0],
+        from_iter_deep.theta[0, ..., 0],
+        err_msg="Theta values do not match",
+    )
+    np.testing.assert_array_equal(
+        from_iter.phi[..., 0],
+        from_iter_deep.phi[0, ..., 0],
+        err_msg="Phi values do not match",
+    )
+
+
+def test_trajectory_list() -> None:
+    # Test that Spin.from_iter can handle a list of Spin objects
+    spins = [
+        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
+        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=2),
+    ]
+    trajectory = Trajectory(
+        spins=Spin.from_iter(spins),
+        displacement=ParticleDisplacement(r=0, theta=0),
+        parallel_velocity=10.0,
+    )
+    trajectory_list = TrajectoryList.from_trajectories([trajectory])
+    assert len(trajectory_list) == 1
+    assert trajectory_list.spins.n_stars == 2
+    np.testing.assert_array_equal(
+        trajectory_list.spins.theta[0, ..., 0],
+        trajectory.spins.theta[..., 0],
+        err_msg="Theta values do not match",
+    )
+    np.testing.assert_array_equal(
+        trajectory_list.spins.phi[0, ..., 0],
+        trajectory.spins.phi[..., 0],
+        err_msg="Phi values do not match",
+    )

@@ -199,10 +199,7 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
         """Create a Spin from a nested list of CoherentSpin objects."""
         spins = list(spins)
         spins_array = np.array(
-            [
-                np.column_stack((spin.theta, spin.phi)).reshape(*spin.shape, 2)
-                for spin in spins
-            ],
+            [np.stack([spin.theta, spin.phi], axis=-1) for spin in spins],
             dtype=np.float64,
         )
         return Spin(spins_array)  # type: ignore[return-value]
@@ -234,10 +231,14 @@ def _get_transverse_expectation(
     return jx, jy, jz
 
 
-def expectation_values[*S_](
+def get_expectation_values[*S_](
     spins: Spin[tuple[*S_, int]],  # type: ignore[override]
 ) -> np.ndarray[tuple[Literal[3], *S_], np.dtype[np.floating]]:  # type: ignore[override]
-    """Get the expectation values of the spin."""
+    """Get the expectation values of the spin.
+
+    Returns an array of shape (3, *spins.shape) where the first dimension corresponds to
+    the expectation values for S_x, S_y, and S_z.
+    """
     momentum_states = spins.momentum_states
     momentum_states = momentum_states.reshape(momentum_states.shape[0], -1)
     expectation_values_list = [

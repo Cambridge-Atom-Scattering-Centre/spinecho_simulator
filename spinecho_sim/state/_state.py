@@ -4,8 +4,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    import numpy as np
-
     from spinecho_sim.state._displacement import ParticleDisplacement
     from spinecho_sim.state._spin import GenericSpin
 
@@ -16,7 +14,7 @@ class ParticleState:
 
     spin: GenericSpin
     displacement: ParticleDisplacement
-    parallel_velocity: np.float64
+    parallel_velocity: float
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
 
     def as_coherent(self) -> list[CoherentParticleState]:
