@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
-from functools import reduce
+from functools import cache, reduce
 from typing import Any, Literal, cast, overload, override
 
 import numpy as np
 from scipy.special import comb  # type: ignore[import]
 
-from spinecho_sim.measurement import transverse_expectation
 from spinecho_sim.state._majorana import majorana_stars
 
 
@@ -209,11 +208,29 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
         return Spin(spins_array)  # type: ignore[return-value]
 
 
-def get_spin_expectation_values(
-    state: np.ndarray[Any, np.dtype[np.complex128]],
+@cache
+def _j_plus_factors(two_j: int) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
+    """Return a sparse array of J_+ ladder factors."""
+    j = two_j / 2
+    m = np.arange(-j, j)  # length 2j   (stops at j-1)
+    return np.sqrt((j - m) * (j + m + 1))
+
+
+def _get_transverse_expectation(
+    state_coefficients: np.ndarray[Any, np.dtype[np.complex128]],
 ) -> tuple[float, float, float]:
-    # Compute expectation values from the momentum states of the input Spin
-    jx, jy, jz = transverse_expectation(state)
+    """Return the expectation values of S_x, S_y, and S_z for a given state vector using cached arrays."""
+    two_j = state_coefficients.size - 1
+    factors = _j_plus_factors(two_j)  # sparse array
+
+    inner = np.conjugate(state_coefficients[:-1]) * state_coefficients[1:] * factors
+    j_plus = inner.sum()
+
+    jx = float(j_plus.real)
+    jy = float(j_plus.imag)
+
+    m_z = np.arange(two_j / 2, -two_j / 2 - 1, -1, dtype=np.float64)
+    jz = float(np.sum(np.abs(state_coefficients) ** 2 * m_z))
     return jx, jy, jz
 
 
@@ -224,7 +241,7 @@ def expectation_values[*S_](
     momentum_states = spins.momentum_states
     momentum_states = momentum_states.reshape(momentum_states.shape[0], -1)
     expectation_values_list = [
-        get_spin_expectation_values(momentum_states[:, i])
+        _get_transverse_expectation(momentum_states[:, i])
         for i in range(momentum_states.shape[1])
     ]
     return np.stack(expectation_values_list, axis=-1, dtype=np.float64).reshape(

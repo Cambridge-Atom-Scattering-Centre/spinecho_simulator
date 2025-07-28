@@ -5,7 +5,10 @@ from typing import Any
 import numpy as np
 import pytest
 
-from spinecho_sim.measurement import transverse_expectation
+from spinecho_sim.state import (
+    Spin,
+    expectation_values,
+)
 
 
 @pytest.mark.parametrize(
@@ -26,8 +29,7 @@ def test_spin_half_eigenstates(
     expected_jy: float,
     expected_jz: float,
 ) -> None:
-    hbar = 1.0
-    jx, jy, jz = transverse_expectation(c, hbar)
+    jx, jy, jz = expectation_values(Spin.from_momentum_state(c))
     np.testing.assert_array_almost_equal(
         jx,
         expected_jx,
@@ -91,8 +93,7 @@ def test_spin_one_eigenstates(
     expected_jy: float,
     expected_jz: float,
 ) -> None:
-    hbar = 1.0
-    jx, jy, jz = transverse_expectation(c, hbar)
+    jx, jy, jz = expectation_values(Spin.from_momentum_state(c))
     np.testing.assert_array_almost_equal(
         jx,
         expected_jx,
