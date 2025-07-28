@@ -226,8 +226,8 @@ def _get_transverse_expectation(
     inner = np.conjugate(state_coefficients[:-1]) * state_coefficients[1:] * factors
     j_plus = inner.sum()
 
-    jx = float(j_plus.real)
-    jy = float(j_plus.imag)
+    jx = -float(j_plus.real)
+    jy = -float(j_plus.imag)
 
     m_z = np.arange(two_j / 2, -two_j / 2 - 1, -1, dtype=np.float64)
     jz = float(np.sum(np.abs(state_coefficients) ** 2 * m_z))
