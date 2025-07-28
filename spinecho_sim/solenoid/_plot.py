@@ -15,8 +15,11 @@ if TYPE_CHECKING:
 
     from spinecho_sim.solenoid._solenoid import SolenoidSimulationResult
 
+cambridge_core_blue = (0 / 255, 115 / 255, 207 / 255)
+cambridge_core_orange = (227 / 255, 114 / 255, 34 / 255)
 
-def plot_spin_component(
+
+def plot_spin_component_old(
     result: SolenoidSimulationResult,
     idx: int,
     *,
@@ -59,7 +62,7 @@ def plot_spin_component(
     return fig, ax
 
 
-def plot_spin_intensity(
+def plot_spin_intensity_old(
     result: SolenoidSimulationResult, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
     fig, ax = get_figure(ax)
@@ -84,13 +87,13 @@ def plot_spin_intensity(
     return fig, ax, line
 
 
-def plot_spin_components(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_spin_components_old(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     assert result.spins.n_stars == 1, "Component plots only supports spin-1/2 systems"
     fig, ax = plt.subplots(figsize=(10, 6))
     for idx in range(3):
-        plot_spin_component(result, idx, ax=ax)
+        plot_spin_component_old(result, idx, ax=ax)
 
-    plot_spin_intensity(result, ax=ax.twinx())
+    plot_spin_intensity_old(result, ax=ax.twinx())
     return fig, ax
 
 
@@ -136,7 +139,10 @@ def plot_spin_theta(
     theta = np.unwrap(result.spins.theta, axis=1) / np.pi
     average_theta = np.average(theta, axis=0)
 
-    (average_line,) = ax.plot(positions, average_theta)
+    (average_line,) = ax.plot(
+        positions,
+        average_theta,
+    )
     color = average_line.get_color()
     average_line.set_label(r"$\langle \theta \rangle$")
 
@@ -200,7 +206,9 @@ def plot_spin_state(
     (measure_line,) = ax.plot(
         positions,
         average_state_measure,
-        label=f"{ms_labels[idx]}" + f"\n{plot_measure(states, measure)[1]}",
+        label="Mean",
+        # label=f"{ms_labels[idx]}" + f"\n{plot_measure(states, measure)[1]}",
+        color=cambridge_core_blue,
     )
     color_measure = measure_line.get_color()
     ax.plot(
@@ -221,9 +229,10 @@ def plot_spin_state(
         alpha=0.2,
         linestyle=":",
         color=color_measure,
+        label=r"Mean $\pm 1\sigma$",
     )
 
-    ax.set_ylabel(ms_labels[idx])
+    ax.set_ylabel(f"{ms_labels[idx]} {plot_measure(states, measure)[1]}")
     ax.legend(loc="lower right")
     ax.set_xlim(positions[0], positions[-1])
 
@@ -260,10 +269,9 @@ def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     for idx, (ax_abs, ax_arg) in enumerate(axes):
         plot_spin_state(result, idx, measure="abs", ax=ax_abs)
         plot_spin_state(result, idx, measure="arg", ax=ax_arg)
-        # plot_state_intensity(result, idx, ax=ax_abs.twinx())
     for ax in axes[-1]:
         ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
-    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes
 
 
@@ -280,16 +288,17 @@ def plot_expectation_value(
 
     average_state_measure = np.average(expectation_values, axis=0)
     labels = [
-        r"$\langle S_x \rangle / \hbar$",
-        r"$\langle S_y \rangle / \hbar$",
-        r"$\langle S_z \rangle / \hbar$",
+        r"\langle S_x \rangle",
+        r"\langle S_y \rangle",
+        r"\langle S_z \rangle",
     ]
 
     # Plot phase
     (measure_line,) = ax.plot(
         positions,
         average_state_measure,
-        label=f"{labels[idx]}",
+        label=rf"$\overline{{{labels[idx]}}} / \hbar$",
+        color=cambridge_core_blue,
     )
     color_measure = measure_line.get_color()
     ax.plot(
@@ -310,9 +319,10 @@ def plot_expectation_value(
         alpha=0.2,
         linestyle=":",
         color=color_measure,
+        label=rf"$\overline{{{labels[idx]}}} / \hbar \pm 1\sigma$",
     )
 
-    ax.set_ylabel(labels[idx])
+    ax.set_ylabel(rf"${labels[idx]} / \hbar$")
     ax.legend(loc="center left")
     ax.set_xlim(positions[0], positions[-1])
 
@@ -325,14 +335,122 @@ def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, A
     for idx, ax in enumerate(axes):
         plot_expectation_value(result, idx, ax=ax)
     axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
-    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes
+
+
+def plot_expectation_phi(
+    result: SolenoidSimulationResult,
+    *,
+    ax: Axes | None = None,
+) -> tuple[Figure | SubFigure, Axes]:
+    fig, ax = get_figure(ax)
+
+    positions = result.positions
+    expectation_values = result.spin_expectations
+
+    wrapped_phi = np.arctan2(
+        expectation_values[1, :], expectation_values[0, :]
+    )  # atan2(y, x) gives the angle in radians
+    phi = np.unwrap(wrapped_phi, axis=1) / np.pi  # Unwrap and normalize to [0, 2π)
+
+    average_phi = np.average(phi, axis=0)
+
+    (average_line,) = ax.plot(
+        positions,
+        average_phi,
+        label=r"$\overline{\langle \phi \rangle}$",
+        color=cambridge_core_blue,
+    )
+    color = average_line.get_color()
+
+    ax.plot(
+        positions,
+        np.swapaxes(phi, 0, 1).reshape(positions.size, -1),
+        alpha=0.1,
+        color=color,
+    )
+    # Standard error of the mean
+    std_spins = np.std(phi, axis=0) / np.sqrt(len(phi))
+    ax.fill_between(
+        positions,
+        (average_phi - std_spins).ravel(),
+        (average_phi + std_spins).ravel(),
+        alpha=0.2,
+        linestyle="--",
+        color=color,
+        label=r"$\overline{\langle \phi \rangle} \pm 1 \sigma$",
+    )
+    ax.legend(loc="lower right")
+    ax.set_ylabel(r"$\langle \phi \rangle$ Azimuthal Angle (radians/$\pi$)")
+    ax.set_xlim(positions[0], positions[-1])
+    return fig, ax
+
+
+def plot_expectation_theta(
+    result: SolenoidSimulationResult,
+    *,
+    ax: Axes | None = None,
+) -> tuple[Figure | SubFigure, Axes]:
+    fig, ax = get_figure(ax)
+
+    positions = result.positions
+    expectation_values = result.spin_expectations
+
+    wrapped_theta = np.arctan2(
+        np.sqrt(expectation_values[0, :] ** 2 + expectation_values[1, :] ** 2),
+        expectation_values[2, :],
+    )
+    theta = np.unwrap(wrapped_theta, axis=1) / np.pi
+
+    average_theta = np.average(theta, axis=0)
+
+    (average_line,) = ax.plot(
+        positions,
+        average_theta,
+        label=r"$\overline{\langle \theta \rangle}$",
+        color=cambridge_core_orange,
+    )
+    color = average_line.get_color()
+
+    ax.plot(
+        positions,
+        np.swapaxes(theta, 0, 1).reshape(positions.size, -1),
+        alpha=0.1,
+        color=color,
+    )
+    # Standard error of the mean
+    std_spins = np.std(theta, axis=0) / np.sqrt(len(theta))
+    ax.fill_between(
+        positions,
+        (average_theta - std_spins).ravel(),
+        (average_theta + std_spins).ravel(),
+        alpha=0.2,
+        linestyle="--",
+        color=color,
+        label=r"$\overline{\langle \theta \rangle} \pm 1 \sigma$",
+    )
+    ax.legend(loc="upper right")
+    ax.set_ylabel(r"$\langle \theta \rangle$ Polar Angle (radians/$\pi$)")
+    ax.set_xlim(positions[0], positions[-1])
+    return fig, ax
+
+
+def plot_expectation_angles(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+    fig, ax = plt.subplots(figsize=(10, 6))
+
+    plot_expectation_theta(result, ax=ax)
+    plot_expectation_phi(result, ax=ax.twinx())
+    ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
+
+    return fig, ax
 
 
 def plot_expectation_trajectory_3d(
     result: SolenoidSimulationResult,
 ) -> tuple[Figure, Axes3D]:
-    fig = plt.figure(figsize=(10, 6))
+    fig = plt.figure(figsize=(6, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
     expectations = result.spin_expectations  # shape: (3, n_samples, n_positions)
@@ -345,7 +463,13 @@ def plot_expectation_trajectory_3d(
     z = avg_expectations[2, :]
 
     # Plot the trajectory as a 3D curve
-    (average_line,) = ax.plot(x, y, z, label=r"Average $\langle \mathbf{S} \rangle$")
+    (average_line,) = ax.plot(
+        x,
+        y,
+        z,
+        label=r"$\overline{\langle \mathbf{S} \rangle}$",
+        color=cambridge_core_blue,
+    )
     color = average_line.get_color()
     ax.plot(
         np.swapaxes(expectations[0], 0, 1).reshape(expectations[0].size, -1),
@@ -359,5 +483,5 @@ def plot_expectation_trajectory_3d(
     ax.set_ylabel(r"$\langle S_y \rangle$")
     ax.set_zlabel(r"$\langle S_z \rangle$")
     ax.legend()
-    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 – 0.95 for axes, 0.05 for title
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, ax
