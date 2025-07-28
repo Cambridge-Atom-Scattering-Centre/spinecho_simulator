@@ -14,9 +14,10 @@
         "numpy",
         "isort",
         "xlabel",
+        "ylabel",
+        "zlabel",
         "xlim",
         "ylim",
-        "ylabel",
         "rtol",
         "ndarray",
         "twinx",
@@ -27,10 +28,12 @@
         "vdot",
         "tqdm",
         "eigvals",
-        "monic"
+        "monic",
+        "mplot"
     ],
     "userWords": [
-        "Larmor"
+        "Larmor",
+        "eigenstates"
     ],
     "flagWords": [
         "hte",

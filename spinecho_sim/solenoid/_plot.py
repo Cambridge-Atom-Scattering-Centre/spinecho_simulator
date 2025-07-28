@@ -207,7 +207,6 @@ def plot_spin_state(
         positions,
         average_state_measure,
         label="Mean",
-        # label=f"{ms_labels[idx]}" + f"\n{plot_measure(states, measure)[1]}",
         color=cambridge_core_blue,
     )
     color_measure = measure_line.get_color()

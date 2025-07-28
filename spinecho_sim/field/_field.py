@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, override
+from typing import TYPE_CHECKING, override
 
 import numpy as np
 from scipy.interpolate import CubicSpline  # type: ignore[import-untyped]
@@ -14,38 +14,12 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
 
-def _get_field(
-    z: float,
-    displacement: ParticleDisplacement,
-    field: TabulatedField | CosSolenoid,
-    dz: float = 1e-5,
-) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
-    if displacement.r == 0:
-        return field(z)
-
-    # Assuming that there is no current in the solenoid, we can
-    # calculate the field at any point using grad.B = 0. We do this
-    b_z_values = [field(zi)[2] for zi in (z - dz, z, z + dz)]
-
-    b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)
-    b0_pp = (b_z_values[2] - 2 * b_z_values[1] + b_z_values[0]) / (dz**2)
-
-    b_r = -0.5 * displacement.r * b0_p
-    db_z = -0.25 * displacement.r**2 * b0_pp
-
-    return np.array(
-        [
-            b_r * np.cos(displacement.theta),
-            b_r * np.sin(displacement.theta),
-            b_z_values[1] + db_z,
-        ]
-    )
-
-
+@dataclass
 class FieldRegion(ABC):
     """
-    One contiguous z-interval on which the same analytic / tabulated
-    formula is valid.  The region knows its own (z_min, z_max) and can
+    Represents a contiguous z-interval on which an analytic / tabulated formula is valid.
+
+    The region knows its own (z_min, z_max) and can
     evaluate the vector field at any (r,φ,z) *inside* that interval.
     """
 
@@ -66,10 +40,7 @@ class FieldRegion(ABC):
     # chaining helper
     def shift(self, dz: float) -> FieldRegion:
         """Return a *copy* translated by +dz in z."""
-        copy = dataclasses.replace(self)  # shallow copy
-        copy.z_min += dz
-        copy.z_max += dz
-        return copy
+        return dataclasses.replace(self, z_min=self.z_min + dz, z_max=self.z_max + dz)
 
 
 @dataclass
@@ -102,8 +73,10 @@ class CosSolenoid(FieldRegion):
 @dataclass
 class TabulatedField(FieldRegion):
     """
-    A generic 1-D field profile Bz(0,z) given as sample points, with the
-    same paraxial off-axis expansion as above.
+    Represents a generic 1-D field profile Bz(0,z) given as sample points.
+
+    Off-axis field: first-order expansion in (r/R) *or* full on-axis derivative
+    if you have it in closed form.
     """
 
     z_grid: np.ndarray  # (N,)  mono-increasing
