@@ -6,7 +6,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from spinecho_sim.state import get_expectation_values
-from spinecho_sim.util import Measure, get_figure, plot_measure, plot_measure_label
+from spinecho_sim.util import Measure, get_figure, get_measure_label, measure_data
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -31,7 +31,7 @@ def plot_spin_state(
 
     positions = result.positions
     states = result.spins.momentum_states[idx, :, :]
-    state_measure = plot_measure(states, measure)
+    state_measure = measure_data(states, measure)
 
     average_state_measure = np.average(state_measure, axis=0)
 
@@ -67,7 +67,7 @@ def plot_spin_state(
         label=r"Mean $\pm 1\sigma$",
     )
 
-    ax.set_ylabel(f"{ms_labels[idx]} {plot_measure_label(measure)}")
+    ax.set_ylabel(f"{ms_labels[idx]} {get_measure_label(measure)}")
     ax.legend(loc="lower right")
     ax.set_xlim(positions[0], positions[-1])
 

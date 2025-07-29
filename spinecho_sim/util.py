@@ -24,7 +24,7 @@ def get_figure(ax: Axes | None = None) -> tuple[Figure | SubFigure, Axes]:
 Measure = Literal["real", "imag", "abs", "arg"]
 
 
-def plot_measure(arr: np.ndarray, measure: Measure) -> np.ndarray:
+def measure_data(arr: np.ndarray, measure: Measure) -> np.ndarray:
     """Get the specified measure of an array."""
     if measure == "real":
         return np.real(arr)
@@ -37,7 +37,7 @@ def plot_measure(arr: np.ndarray, measure: Measure) -> np.ndarray:
     return None
 
 
-def plot_measure_label(measure: Measure) -> str:
+def get_measure_label(measure: Measure) -> str:
     """Get the specified measure of an array."""
     if measure == "real":
         return "Real part"
