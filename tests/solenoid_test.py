@@ -165,13 +165,13 @@ def test_simulate_trajectory_high_spin() -> None:
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
-        result.spins.theta[..., 0],
-        result.spins.theta[..., 1],
+        result.spins.theta[0, ..., 0],
+        result.spins.theta[1, ..., 1],
         atol=1e-4,
     )
     np.testing.assert_allclose(
-        result.spins.phi[..., 0],
-        result.spins.phi[..., 1],
+        result.spins.phi[0, ..., 0],
+        result.spins.phi[1, ..., 1],
         atol=1e-4,
     )
 
