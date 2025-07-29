@@ -125,7 +125,6 @@ def test_expectation_large_state(n_stars: int) -> None:
 
 
 def test_spin_from_iter() -> None:
-    # Test that Spin.from_iter can handle a list of Spin objects
     spins = [
         CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
         CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=2),
@@ -151,10 +150,10 @@ def test_spin_from_iter() -> None:
 
 
 def test_trajectory_list() -> None:
-    # Test that Spin.from_iter can handle a list of Spin objects
+    n_stars = 2
     spins = [
-        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
-        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=2),
+        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=n_stars),
+        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=n_stars),
     ]
     trajectory = Trajectory(
         spins=Spin.from_iter(spins),
@@ -162,8 +161,10 @@ def test_trajectory_list() -> None:
         parallel_velocity=10.0,
     )
     trajectory_list = TrajectoryList.from_trajectories([trajectory])
+
     assert len(trajectory_list) == 1
-    assert trajectory_list.spins.n_stars == 2
+    assert trajectory_list.spins.n_stars == n_stars
+
     np.testing.assert_array_equal(
         trajectory_list.spins.theta[0, ..., 0],
         trajectory.spins.theta[..., 0],

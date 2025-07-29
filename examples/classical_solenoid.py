@@ -9,7 +9,6 @@ from spinecho_sim import (
 )
 from spinecho_sim.solenoid import (
     plot_expectation_angles,
-    plot_expectation_trajectory_3d,
     plot_expectation_values,
     plot_spin_states,
 )
@@ -68,17 +67,6 @@ if __name__ == "__main__":
     )
     output_path = (
         f"./examples/classical_solenoid.expectation.{num_spins}-spins_S-{S_label}.pdf"
-    )
-    plt.savefig(output_path, dpi=600, bbox_inches="tight")
-
-    fig, ax = plot_expectation_trajectory_3d(result)
-    fig.suptitle(
-        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
-        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
-        f"{num_spins} spins, $S={S_label}$",
-    )
-    output_path = (
-        f"./examples/classical_solenoid.trajectory.{num_spins}-spins_S-{S_label}.pdf"
     )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 

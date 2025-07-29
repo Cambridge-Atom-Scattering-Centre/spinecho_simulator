@@ -17,8 +17,8 @@ class ParticleDisplacement:
     - theta is the angle from the positive x-axis in the x-y plane.
     """
 
-    r: float
-    theta: float
+    r: float = 0
+    theta: float = 0
 
     @property
     def x(self) -> float:

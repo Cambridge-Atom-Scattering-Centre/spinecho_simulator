@@ -14,10 +14,10 @@ if TYPE_CHECKING:
     from matplotlib.lines import Line2D
     from mpl_toolkits.mplot3d import Axes3D  # type: ignore[import-untyped]
 
-    from spinecho_sim.solenoid._solenoid import SolenoidSimulationResult
-
-cambridge_core_blue = (0 / 255, 115 / 255, 207 / 255)
-cambridge_core_orange = (227 / 255, 114 / 255, 34 / 255)
+    from spinecho_sim.solenoid._solenoid import (
+        SolenoidSimulationResult,
+    )
+    from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
 
 
 def plot_spin_state(
@@ -46,12 +46,7 @@ def plot_spin_state(
     ]
 
     # Plot phase
-    (measure_line,) = ax.plot(
-        positions,
-        average_state_measure,
-        label="Mean",
-        color=cambridge_core_blue,
-    )
+    (measure_line,) = ax.plot(positions, average_state_measure, label="Mean")
     color_measure = measure_line.get_color()
     ax.plot(
         positions,
@@ -133,13 +128,8 @@ def plot_expectation_value(
         r"\langle S_z \rangle",
     ]
 
-    # Plot phase
-    (measure_line,) = ax.plot(
-        positions,
-        average_state_measure,
-        label=rf"$\overline{{{labels[idx]}}} / \hbar$",
-        color=cambridge_core_blue,
-    )
+    (measure_line,) = ax.plot(positions, average_state_measure)
+    measure_line.set_label(rf"$\overline{{{labels[idx]}}} / \hbar$")
     color_measure = measure_line.get_color()
     ax.plot(
         positions,
@@ -196,12 +186,8 @@ def plot_expectation_phi(
 
     average_phi = np.average(phi, axis=0)
 
-    (average_line,) = ax.plot(
-        positions,
-        average_phi,
-        label=r"$\overline{\langle \phi \rangle}$",
-        color=cambridge_core_blue,
-    )
+    (average_line,) = ax.plot(positions, average_phi)
+    average_line.set_label(r"$\overline{\langle \phi \rangle}$")
     color = average_line.get_color()
 
     ax.plot(
@@ -245,12 +231,8 @@ def plot_expectation_theta(
 
     average_theta = np.average(theta, axis=0)
 
-    (average_line,) = ax.plot(
-        positions,
-        average_theta,
-        label=r"$\overline{\langle \theta \rangle}$",
-        color=cambridge_core_orange,
-    )
+    (average_line,) = ax.plot(positions, average_theta)
+    average_line.set_label(r"$\overline{\langle \theta \rangle}$")
     color = average_line.get_color()
 
     ax.plot(
@@ -287,13 +269,29 @@ def plot_expectation_angles(result: SolenoidSimulationResult) -> tuple[Figure, A
     return fig, ax
 
 
-def plot_expectation_trajectory_3d(
-    result: SolenoidSimulationResult,
+def plot_expectation_trajectory(
+    trajectory: Trajectory,
+) -> tuple[Figure, Axes3D, Line2D]:
+    fig = plt.figure(figsize=(6, 6))
+    ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
+
+    expectations = get_expectation_values(trajectory.spins)
+
+    # Plot the trajectory as a 3D curve
+    (line,) = ax.plot(expectations[0, :], expectations[1, :], expectations[2, :])
+    ax.set_xlabel(r"$\langle S_x \rangle$")
+    ax.set_ylabel(r"$\langle S_y \rangle$")
+    ax.set_zlabel(r"$\langle S_z \rangle$")
+    return fig, ax, line
+
+
+def plot_expectation_trajectories(
+    trajectories: TrajectoryList,
 ) -> tuple[Figure, Axes3D]:
     fig = plt.figure(figsize=(10, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = get_expectation_values(result.spins)
+    expectations = get_expectation_values(trajectories.spins)
     # Average over samples (axis=1), shape: (3, n_positions)
     avg_expectations = np.average(expectations, axis=1)
 
@@ -303,21 +301,13 @@ def plot_expectation_trajectory_3d(
     z = avg_expectations[2, :]
 
     # Plot the trajectory as a 3D curve
-    (average_line,) = ax.plot(
-        x,
-        y,
-        z,
-        label=r"$\overline{\langle \mathbf{S} \rangle}$",
-        color=cambridge_core_blue,
-    )
+    (average_line,) = ax.plot(x, y, z)
+    average_line.set_label(r"$\overline{\langle \mathbf{S} \rangle}$")
     color = average_line.get_color()
-    ax.plot(
-        np.swapaxes(expectations[0], 0, 1).reshape(expectations[0].size, -1),
-        np.swapaxes(expectations[1], 0, 1).reshape(expectations[1].size, -1),
-        np.swapaxes(expectations[2], 0, 1).reshape(expectations[2].size, -1),
-        alpha=0.1,
-        color=color,
-    )
+    for trajectory in trajectories:
+        _, _, line = plot_expectation_trajectory(trajectory)
+        line.set_alpha(0.1)
+        line.set_color(color)
 
     ax.set_xlabel(r"$\langle S_x \rangle$")
     ax.set_ylabel(r"$\langle S_y \rangle$")

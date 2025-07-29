@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from spinecho_sim.solenoid._plot import (
     plot_expectation_angles,
-    plot_expectation_trajectory_3d,
+    plot_expectation_trajectories,
+    plot_expectation_trajectory,
     plot_expectation_values,
     plot_spin_states,
 )
@@ -19,7 +20,8 @@ __all__ = [
     "SolenoidSimulationResult",
     "SolenoidTrajectory",
     "plot_expectation_angles",
-    "plot_expectation_trajectory_3d",
+    "plot_expectation_trajectories",
+    "plot_expectation_trajectory",
     "plot_expectation_values",
     "plot_spin_states",
 ]

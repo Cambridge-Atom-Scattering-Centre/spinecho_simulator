@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from spinecho_sim.state._displacement import ParticleDisplacement
+
 if TYPE_CHECKING:
-    from spinecho_sim.state._displacement import ParticleDisplacement
     from spinecho_sim.state._spin import GenericSpin
 
 
@@ -13,7 +14,7 @@ class ParticleState:
     """Represents the state of a particle in the simulation."""
 
     spin: GenericSpin
-    displacement: ParticleDisplacement
+    displacement: ParticleDisplacement = field(default_factory=ParticleDisplacement)
     parallel_velocity: float
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
 
