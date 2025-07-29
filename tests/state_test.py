@@ -7,15 +7,16 @@ import pytest
 
 from spinecho_sim.state import (
     CoherentSpin,
+    ParticleDisplacement,
     Spin,
+    Trajectory,
+    TrajectoryList,
     get_expectation_values,
 )
-from spinecho_sim.state._displacement import ParticleDisplacement
-from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
 
 
 @pytest.mark.parametrize(
-    ("c", "expected_jx", "expected_jy", "expected_jz"),
+    ("state_coefficients", "expected_jx", "expected_jy", "expected_jz"),
     # order of state components is m_s=[j, j-1, ..., -j+1, -j]
     [
         (np.array([1, 0], dtype=np.complex128), 0.0, 0.0, 0.5),  # |+z>
@@ -61,26 +62,26 @@ from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
     ],
 )
 def test_expectation_of_known_states(
-    c: np.ndarray[Any, np.dtype[np.complex128]],
+    state_coefficients: np.ndarray[Any, np.dtype[np.complex128]],
     expected_jx: float,
     expected_jy: float,
     expected_jz: float,
 ) -> None:
-    jx, jy, jz = get_expectation_values(Spin.from_momentum_state(c))
+    jx, jy, jz = get_expectation_values(Spin.from_momentum_state(state_coefficients))
     np.testing.assert_array_almost_equal(
         jx,
         expected_jx,
-        err_msg=f"Failed for state {c}, expected Jx={expected_jx}, got Jx={jx}",
+        err_msg=f"Failed for state {state_coefficients}, expected Jx={expected_jx}, got Jx={jx}",
     )
     np.testing.assert_array_almost_equal(
         jy,
         expected_jy,
-        err_msg=f"Failed for state {c}, expected Jy={expected_jy}, got Jy={jy}",
+        err_msg=f"Failed for state {state_coefficients}, expected Jy={expected_jy}, got Jy={jy}",
     )
     np.testing.assert_array_almost_equal(
         jz,
         expected_jz,
-        err_msg=f"Failed for state {c}, expected Jz={expected_jz}, got Jz={jz}",
+        err_msg=f"Failed for state {state_coefficients}, expected Jz={expected_jz}, got Jz={jz}",
     )
 
 

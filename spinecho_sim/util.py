@@ -24,16 +24,29 @@ def get_figure(ax: Axes | None = None) -> tuple[Figure | SubFigure, Axes]:
 Measure = Literal["real", "imag", "abs", "arg"]
 
 
-def plot_measure(arr: np.ndarray, measure: Measure) -> tuple[np.ndarray, str]:
+def plot_measure(arr: np.ndarray, measure: Measure) -> np.ndarray:
     """Get the specified measure of an array."""
     if measure == "real":
-        return np.real(arr), "Real part"
+        return np.real(arr)
     if measure == "imag":
-        return np.imag(arr), "Imaginary part"
+        return np.imag(arr)
     if measure == "abs":
-        return _signed_mag_and_phase(arr)[0], "Magnitude"
+        return _signed_mag_and_phase(arr)[0]
     if measure == "arg":
-        return _signed_mag_and_phase(arr)[1] / np.pi, r"Phase $/\pi$"
+        return _signed_mag_and_phase(arr)[1] / np.pi
+    return None
+
+
+def plot_measure_label(measure: Measure) -> str:
+    """Get the specified measure of an array."""
+    if measure == "real":
+        return "Real part"
+    if measure == "imag":
+        return "Imaginary part"
+    if measure == "abs":
+        return "Magnitude"
+    if measure == "arg":
+        return r"Phase $/\pi$"
     return None
 
 

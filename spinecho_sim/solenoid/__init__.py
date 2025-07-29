@@ -6,12 +6,7 @@ from spinecho_sim.solenoid._plot import (
     plot_expectation_angles,
     plot_expectation_trajectory_3d,
     plot_expectation_values,
-    plot_spin_angles,
-    plot_spin_components_old,
-    plot_spin_intensity_old,
-    plot_spin_phi,
     plot_spin_states,
-    plot_spin_theta,
 )
 from spinecho_sim.solenoid._solenoid import (
     Solenoid,
@@ -26,10 +21,5 @@ __all__ = [
     "plot_expectation_angles",
     "plot_expectation_trajectory_3d",
     "plot_expectation_values",
-    "plot_spin_angles",
-    "plot_spin_components_old",
-    "plot_spin_intensity_old",
-    "plot_spin_phi",
     "plot_spin_states",
-    "plot_spin_theta",
 ]
