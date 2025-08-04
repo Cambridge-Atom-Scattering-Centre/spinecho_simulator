@@ -21,16 +21,16 @@ from spinecho_sim.state import (
     [
         (np.array([1, 0], dtype=np.complex128), 0.0, 0.0, 0.5),  # |+z>
         (np.array([0, 1], dtype=np.complex128), 0.0, 0.0, -0.5),  # |-z>
-        (np.array([1, 1], dtype=np.complex128) / np.sqrt(2), -0.5, 0.0, 0.0),  # |+x>
-        (np.array([1, -1], dtype=np.complex128) / np.sqrt(2), 0.5, 0.0, 0.0),  # |-x>
-        (np.array([1, 1j], dtype=np.complex128) / np.sqrt(2), 0.0, -0.5, 0.0),  # |+y>
-        (np.array([1, -1j], dtype=np.complex128) / np.sqrt(2), 0.0, 0.5, 0.0),  # |-y>
+        (np.array([1, 1], dtype=np.complex128) / np.sqrt(2), 0.5, 0.0, 0.0),  # |+x>
+        (np.array([1, -1], dtype=np.complex128) / np.sqrt(2), -0.5, 0.0, 0.0),  # |-x>
+        (np.array([1, 1j], dtype=np.complex128) / np.sqrt(2), 0.0, 0.5, 0.0),  # |+y>
+        (np.array([1, -1j], dtype=np.complex128) / np.sqrt(2), 0.0, -0.5, 0.0),  # |-y>
         (np.array([1, 0, 0], dtype=np.complex128), 0.0, 0.0, 1.0),  # |z:+1>
         (np.array([0, 0, 1], dtype=np.complex128), 0.0, 0.0, -1.0),  # |z:-1>
         (np.array([0, 1, 0], dtype=np.complex128), 0.0, 0.0, 0.0),  # |z:0>
         (
             np.array([1, np.sqrt(2), 1], dtype=np.complex128) / 2,
-            -1.0,
+            1.0,
             0.0,
             0.0,
         ),  # |x:+1>
@@ -42,21 +42,21 @@ from spinecho_sim.state import (
         ),  # |x:0>
         (
             np.array([1, -np.sqrt(2), 1], dtype=np.complex128) / 2,
-            1.0,
+            -1.0,
             0.0,
             0.0,
         ),  # |x:-1>
         (
             np.array([1, 1j * np.sqrt(2), -1], dtype=np.complex128) / 2,
             0,
-            -1,
+            1,
             0.0,
         ),  # |y:+1>
         (np.array([1, 0, 1], dtype=np.complex128) / np.sqrt(2), 0, 0, 0.0),  # |y:0>
         (
             np.array([1, -1j * np.sqrt(2), -1], dtype=np.complex128) / 2,
             0,
-            1,
+            -1,
             0.0,
         ),  # |y:-1>
     ],
