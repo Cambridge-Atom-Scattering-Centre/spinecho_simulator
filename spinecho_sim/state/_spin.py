@@ -41,6 +41,53 @@ def _majorana_polynomial_components(
     return state / np.linalg.norm(state)
 
 
+def _inner_prod(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+    b: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.complexfloating:
+    two_j = len(a) - 1
+    k = np.arange(two_j + 1)
+    w = 1 / np.asarray(comb(two_j, k), dtype=np.complex128)
+    return np.vdot(a, b * w)  # vdot = conjugate(a)·b
+
+
+def _deriv(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    k = np.arange(len(a) - 1)
+    da = (k + 1) * a[k + 1]
+    return np.concatenate((da, [0]))
+
+
+def _z_mul(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]], shift: int = 1
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    return np.concatenate((np.zeros_like(a[:shift]), a[:-shift]))
+
+
+def _s_minus(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    return _deriv(a)  # Eq. (1) rightmost
+
+
+def _s_plus(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    two_j = len(a) - 1
+    term1 = -_z_mul(_deriv(a), shift=2)  # -ħ z^2 dP/dz
+    term2 = two_j * _z_mul(a, shift=1)  # +2ħj z P
+    return term1 + term2
+
+
+def _s_z(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    j = (len(a) - 1) / 2
+    term = _z_mul(_deriv(a), shift=1)  # z dP/dz
+    return term - j * a
+
+
 class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
     """A class representing a collection of lists of CoherentSpin objects."""
 
@@ -213,22 +260,38 @@ def _j_plus_factors(two_j: int) -> np.ndarray[tuple[int], np.dtype[np.float64]]:
     return np.sqrt((j - m) * (j + m + 1))
 
 
-def _get_transverse_expectation(
+def _get_expectation(
     state_coefficients: np.ndarray[Any, np.dtype[np.complex128]],
 ) -> tuple[float, float, float]:
     """Return the expectation values of S_x, S_y, and S_z for a given state vector using cached arrays."""
+    state_coefficients /= np.linalg.norm(state_coefficients)  # Normalize the state
     two_j = state_coefficients.size - 1
     factors = _j_plus_factors(two_j)  # sparse array
 
     inner = np.conjugate(state_coefficients[:-1]) * state_coefficients[1:] * factors
     j_plus = inner.sum()
 
-    jx = -float(j_plus.real)
-    jy = -float(j_plus.imag)
+    jx = float(j_plus.real)
+    jy = float(j_plus.imag)
 
     m_z = np.arange(two_j / 2, -two_j / 2 - 1, -1, dtype=np.float64)
     jz = float(np.sum(np.abs(state_coefficients) ** 2 * m_z))
     return jx, jy, jz
+
+
+def _get_bargmann_expectation(
+    state_coefficients: np.ndarray[Any, np.dtype[np.complex128]],
+) -> tuple[float, float, float]:
+    """Return the expectation values of S_x, S_y, and S_z for a given state vector using bargmann representation operators."""
+    # operator actions
+    a_minus = _s_minus(state_coefficients)
+    a_plus = _s_plus(state_coefficients)
+    a_z = _s_z(state_coefficients)
+
+    sx = 0.5 * _inner_prod(state_coefficients, a_plus + a_minus)
+    sy = -0.5j * _inner_prod(state_coefficients, a_plus - a_minus)
+    sz = _inner_prod(state_coefficients, a_z)
+    return float(sx.real), float(sy.real), float(sz.real)
 
 
 def get_expectation_values[*S_](
@@ -242,7 +305,25 @@ def get_expectation_values[*S_](
     momentum_states = spins.momentum_states
     momentum_states = momentum_states.reshape(momentum_states.shape[0], -1)
     expectation_values_list = [
-        _get_transverse_expectation(momentum_states[:, i])
+        _get_expectation(momentum_states[:, i]) for i in range(momentum_states.shape[1])
+    ]
+    return np.stack(expectation_values_list, axis=-1, dtype=np.float64).reshape(
+        3, *spins.shape[:-1]
+    )  # type: ignore[return-value]
+
+
+def get_bargmann_expectation_values[*S_](
+    spins: Spin[tuple[*S_, int]],  # type: ignore[override]
+) -> np.ndarray[tuple[Literal[3], *S_], np.dtype[np.floating]]:  # type: ignore[override]
+    """Get the expectation values of the spin.
+
+    Returns an array of shape (3, *spins.shape) where the first dimension corresponds to
+    the expectation values for S_x, S_y, and S_z.
+    """
+    momentum_states = spins.momentum_states
+    momentum_states = momentum_states.reshape(momentum_states.shape[0], -1)
+    expectation_values_list = [
+        _get_bargmann_expectation(momentum_states[:, i])
         for i in range(momentum_states.shape[1])
     ]
     return np.stack(expectation_values_list, axis=-1, dtype=np.float64).reshape(
