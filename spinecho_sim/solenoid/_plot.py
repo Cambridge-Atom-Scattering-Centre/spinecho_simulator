@@ -207,7 +207,7 @@ def plot_expectation_phi(
         color=color,
         label=r"$\overline{\langle \phi \rangle} \pm 1 \sigma$",
     )
-    ax.legend(loc="lower right")
+    ax.legend(loc="upper right")
     ax.set_ylabel(r"$\langle \phi \rangle$ Azimuthal Angle (radians/$\pi$)")
     ax.set_xlim(positions[0], positions[-1])
     return fig, ax
@@ -252,7 +252,7 @@ def plot_expectation_theta(
         color=color,
         label=r"$\overline{\langle \theta \rangle} \pm 1 \sigma$",
     )
-    ax.legend(loc="upper right")
+    ax.legend(loc="upper left")
     ax.set_ylabel(r"$\langle \theta \rangle$ Polar Angle (radians/$\pi$)")
     ax.set_xlim(positions[0], positions[-1])
     return fig, ax
@@ -288,7 +288,7 @@ def plot_expectation_trajectory(
 def plot_expectation_trajectories(
     trajectories: TrajectoryList,
 ) -> tuple[Figure, Axes3D]:
-    fig = plt.figure(figsize=(10, 6))
+    fig = plt.figure(figsize=(8, 8))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
     expectations = get_expectation_values(trajectories.spins)
