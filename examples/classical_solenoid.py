@@ -54,10 +54,10 @@ if __name__ == "__main__":
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = (
-        f"./examples/classical_solenoid.state.{num_spins}-spins_S-{S_label}.pdf"
-    )
-    plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    # output_path = (
+    #     f"./examples/classical_solenoid.state.{num_spins}-spins_S-{S_label}.pdf"
+    # )
+    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     fig, ax = plot_expectation_values(result)
     fig.suptitle(
@@ -65,10 +65,10 @@ if __name__ == "__main__":
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = (
-        f"./examples/classical_solenoid.expectation.{num_spins}-spins_S-{S_label}.pdf"
-    )
-    plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    # output_path = (
+    #     f"./examples/classical_solenoid.expectation.{num_spins}-spins_S-{S_label}.pdf"
+    # )
+    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     fig, ax = plot_expectation_angles(result)
     fig.suptitle(
@@ -76,9 +76,9 @@ if __name__ == "__main__":
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = (
-        f"./examples/classical_solenoid.angles.{num_spins}-spins_S-{S_label}.pdf"
-    )
-    plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    # output_path = (
+    #     f"./examples/classical_solenoid.angles.{num_spins}-spins_S-{S_label}.pdf"
+    # )
+    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     plt.show()

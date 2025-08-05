@@ -7,11 +7,10 @@ import pytest
 
 from spinecho_sim.state import (
     CoherentSpin,
-    ParticleDisplacement,
     Spin,
-    Trajectory,
-    TrajectoryList,
-    get_expectation_values,
+)
+from spinecho_sim.state._spin import (
+    get_bargmann_expectation_values,
 )
 
 
@@ -67,7 +66,9 @@ def test_expectation_of_known_states(
     expected_jy: float,
     expected_jz: float,
 ) -> None:
-    jx, jy, jz = get_expectation_values(Spin.from_momentum_state(state_coefficients))
+    jx, jy, jz = get_bargmann_expectation_values(
+        Spin.from_momentum_state(state_coefficients)
+    )
     np.testing.assert_array_almost_equal(
         jx,
         expected_jx,
@@ -93,7 +94,7 @@ def test_expectation_coherent_state(n_stars: int) -> None:
     spin = CoherentSpin(theta=theta, phi=phi)
 
     generic_spin = spin.as_generic(n_stars=n_stars)
-    expectation = get_expectation_values(generic_spin)
+    expectation = get_bargmann_expectation_values(generic_spin)
 
     jx, jy, jz = 2 * expectation / n_stars
     np.testing.assert_array_almost_equal(jx, spin.x, err_msg="Incorrect Jx")
@@ -116,62 +117,9 @@ def test_expectation_large_state(n_stars: int) -> None:
     spin = Spin(spins)
     assert spin.n_stars == n_stars
 
-    expectation = get_expectation_values(spin)  # type: ignore[return-value]
+    expectation = get_bargmann_expectation_values(spin)  # type: ignore[return-value]
 
     jx, jy, jz = 2 * expectation / n_stars
     np.testing.assert_array_almost_equal(jx, spin.x[..., 0], err_msg="Incorrect Jx")
     np.testing.assert_array_almost_equal(jy, spin.y[..., 0], err_msg="Incorrect Jy")
     np.testing.assert_array_almost_equal(jz, spin.z[..., 0], err_msg="Incorrect Jz")
-
-
-def test_spin_from_iter() -> None:
-    spins = [
-        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=2),
-        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=2),
-    ]
-    assert spins[0].shape == (2,)
-
-    from_iter = Spin.from_iter(spins)
-    assert from_iter.shape == (2, 2)
-
-    from_iter_deep = Spin.from_iter([from_iter])
-    assert from_iter_deep.shape == (1, 2, 2)
-
-    np.testing.assert_array_equal(
-        from_iter.theta[..., 0],
-        from_iter_deep.theta[0, ..., 0],
-        err_msg="Theta values do not match",
-    )
-    np.testing.assert_array_equal(
-        from_iter.phi[..., 0],
-        from_iter_deep.phi[0, ..., 0],
-        err_msg="Phi values do not match",
-    )
-
-
-def test_trajectory_list() -> None:
-    n_stars = 2
-    spins = [
-        CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=n_stars),
-        CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=n_stars),
-    ]
-    trajectory = Trajectory(
-        spins=Spin.from_iter(spins),
-        displacement=ParticleDisplacement(r=0, theta=0),
-        parallel_velocity=10.0,
-    )
-    trajectory_list = TrajectoryList.from_trajectories([trajectory])
-
-    assert len(trajectory_list) == 1
-    assert trajectory_list.spins.n_stars == n_stars
-
-    np.testing.assert_array_equal(
-        trajectory_list.spins.theta[0, ..., 0],
-        trajectory.spins.theta[..., 0],
-        err_msg="Theta values do not match",
-    )
-    np.testing.assert_array_equal(
-        trajectory_list.spins.phi[0, ..., 0],
-        trajectory.spins.phi[..., 0],
-        err_msg="Phi values do not match",
-    )

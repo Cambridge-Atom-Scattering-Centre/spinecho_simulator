@@ -47,6 +47,15 @@ def sample_uniform_displacement(n: int, r_max: float) -> ParticleDisplacementLis
     )
 
 
+def sample_constant_displacement(
+    n: int, r: float, theta: float = 0.0
+) -> ParticleDisplacementList:
+    """Sample N constant displacements with given radius and angle."""
+    return ParticleDisplacementList.from_displacements(
+        [ParticleDisplacement(r=r, theta=theta) for _ in range(n)]
+    )
+
+
 def sample_boltzmann_velocities(
     n: int, temperature: float, mass: float
 ) -> np.ndarray[Any, np.dtype[np.floating]]:
@@ -65,3 +74,10 @@ def sample_gaussian_velocities(
     """Sample N velocities from a Gaussian distribution."""
     rng = np.random.default_rng()
     return rng.normal(loc=average_velocity, scale=std_velocity, size=n)
+
+
+def sample_constant_velocity(
+    n: int, velocity: float
+) -> np.ndarray[Any, np.dtype[np.floating]]:
+    """Sample N constant velocities."""
+    return np.full((n,), velocity, dtype=np.float64)
