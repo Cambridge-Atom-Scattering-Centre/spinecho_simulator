@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import datetime
 from functools import wraps
+from itertools import permutations
+from math import factorial
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
+import scipy.sparse as sp
 from matplotlib import pyplot as plt
 
 if TYPE_CHECKING:
@@ -22,32 +25,6 @@ def get_figure(ax: Axes | None = None) -> tuple[Figure | SubFigure, Axes]:
 
 
 Measure = Literal["real", "imag", "abs", "arg"]
-
-
-def measure_data(arr: np.ndarray, measure: Measure) -> np.ndarray:
-    """Get the specified measure of an array."""
-    if measure == "real":
-        return np.real(arr)
-    if measure == "imag":
-        return np.imag(arr)
-    if measure == "abs":
-        return _signed_mag_and_phase(arr)[0]
-    if measure == "arg":
-        return _signed_mag_and_phase(arr)[1] / np.pi
-    return None
-
-
-def get_measure_label(measure: Measure) -> str:
-    """Get the specified measure of an array."""
-    if measure == "real":
-        return "Real part"
-    if measure == "imag":
-        return "Imaginary part"
-    if measure == "abs":
-        return "Magnitude"
-    if measure == "arg":
-        return r"Phase $/\pi$"
-    return None
 
 
 def _signed_mag_and_phase(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
@@ -83,6 +60,32 @@ def _signed_mag_and_phase(arr: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     return m_signed, phi_signed
 
 
+def measure_data(arr: np.ndarray, measure: Measure) -> np.ndarray:
+    """Get the specified measure of an array."""
+    if measure == "real":
+        return np.real(arr)
+    if measure == "imag":
+        return np.imag(arr)
+    if measure == "abs":
+        return _signed_mag_and_phase(arr)[0]
+    if measure == "arg":
+        return _signed_mag_and_phase(arr)[1] / np.pi
+    return None
+
+
+def get_measure_label(measure: Measure) -> str:
+    """Get the specified measure of an array."""
+    if measure == "real":
+        return "Real part"
+    if measure == "imag":
+        return "Imaginary part"
+    if measure == "abs":
+        return "Magnitude"
+    if measure == "arg":
+        return r"Phase $/\pi$"
+    return None
+
+
 def timed[**P, R](f: Callable[P, R]) -> Callable[P, R]:
     """
     Log the time taken for f to run.
@@ -109,3 +112,41 @@ def timed[**P, R](f: Callable[P, R]) -> Callable[P, R]:
         return result
 
     return wrap  # type: ignore[return-value]
+
+
+def _permute_indices(n_stars: int, perm: tuple[int, ...]) -> np.ndarray:
+    """Vectorized map: 0..2**N-1  →  permuted index under `perm`."""
+    dim = int(
+        2**n_stars
+    )  # The total number of basis states in the tensor product space.
+    index = np.arange(dim)
+    powers = (
+        2 ** np.arange(n_stars - 1, -1, -1)
+    )  # Computes the powers needed to convert a flat index to its multi-index representation.
+    digits = (
+        index[:, None] // powers
+    ) % 2  # Converts each flat index to its multi-index (i.e., each subsystem state).
+    new_digits = digits[
+        :, perm
+    ]  # Rearranges the digits according to the desired permutation.
+    return (new_digits * powers).sum(
+        1
+    )  # Converts the permuted multi-indices back to flat indices.
+
+
+def _permutation_matrix(n_stars: int, perm: tuple[int, ...]) -> sp.csr_matrix:
+    """Sparse unitary that permutes tensor factors."""
+    dim = int(2**n_stars)
+    rows = _permute_indices(n_stars, perm)
+    cols = np.arange(dim)
+    data = np.ones(dim)
+    return sp.csr_matrix(sp.coo_matrix((data, (rows, cols)), shape=(dim, dim)))
+
+
+def symmetriser(n_stars: int) -> sp.csr_matrix:
+    """(2^N x 2^N) projector onto the totally-symmetric subspace."""
+    projector = sp.csr_matrix((2**n_stars, 2**n_stars), dtype=np.float64)
+    for perm in permutations(range(n_stars)):
+        projector += _permutation_matrix(n_stars, perm)
+    projector /= factorial(n_stars)
+    return projector  # idempotent, Hermitian
