@@ -43,9 +43,17 @@ from spinecho_sim.util import product_state, symmetriser
     ],
 )
 def test_symmetriser(input_spin: Spin, expected_output: np.ndarray) -> None:
-    n = 3  # Number of qubits
+    n = input_spin.n_stars
     p_sym = symmetriser(n)
-    np.testing.assert_array_almost_equal(n + 1, np.linalg.matrix_rank(p_sym.toarray()))
+    np.testing.assert_array_almost_equal(
+        n + 1,
+        np.linalg.matrix_rank(p_sym.toarray()),
+        err_msg="Symmetriser rank mismatch.",
+    )
     output_state = p_sym @ product_state(input_spin._spins)
     output_state /= np.linalg.norm(output_state)  # normalise
-    np.testing.assert_array_almost_equal(output_state, expected_output)
+    np.testing.assert_array_almost_equal(
+        output_state,
+        expected_output,
+        err_msg="Symmetrisation failed for input spin state.",
+    )
