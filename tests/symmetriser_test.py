@@ -3,22 +3,49 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from spinecho_sim.util import symmetriser
+from spinecho_sim.state import CoherentSpin, Spin
+from spinecho_sim.util import product_state, symmetriser
 
 
 @pytest.mark.parametrize(
-    ("input_state", "expected_output"),
+    ("input_spin", "expected_output"),
     [
         (
-            np.array([0, 0, 1, 0, 0, 0, 0, 0], dtype=np.float64),
+            Spin.from_iter(
+                [
+                    CoherentSpin(theta=0, phi=0),
+                    CoherentSpin(theta=np.pi, phi=0),
+                    CoherentSpin(theta=0, phi=0),
+                ]
+            ),
             np.array([0, 1, 1, 0, 1, 0, 0, 0] / np.sqrt(3), dtype=np.float64),
+        ),
+        (
+            Spin.from_iter(
+                [
+                    CoherentSpin(theta=np.pi, phi=0),
+                    CoherentSpin(theta=0, phi=0),
+                    CoherentSpin(theta=0, phi=0),
+                ]
+            ),
+            np.array([0, 1, 1, 0, 1, 0, 0, 0] / np.sqrt(3), dtype=np.float64),
+        ),
+        (
+            Spin.from_iter(
+                [
+                    CoherentSpin(theta=np.pi, phi=0),
+                    CoherentSpin(theta=0, phi=0),
+                    CoherentSpin(theta=np.pi, phi=0),
+                ]
+            ),
+            np.array([0, 0, 0, 1, 0, 1, 1, 0] / np.sqrt(3), dtype=np.float64),
         ),
     ],
 )
-def test_symmetriser(input_state: np.ndarray, expected_output: np.ndarray) -> None:
+def test_symmetriser(input_spin: Spin, expected_output: np.ndarray) -> None:
     n = 3  # Number of qubits
     p_sym = symmetriser(n)
     np.testing.assert_array_almost_equal(n + 1, np.linalg.matrix_rank(p_sym.toarray()))
-    output_state = p_sym @ input_state
+    output_state = p_sym @ product_state(input_spin._spins)
     output_state /= np.linalg.norm(output_state)  # normalise
     np.testing.assert_array_almost_equal(output_state, expected_output)
