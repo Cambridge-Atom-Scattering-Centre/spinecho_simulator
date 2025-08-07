@@ -65,6 +65,37 @@ def _z_mul(
     return np.concatenate((np.zeros(shift, dtype=np.complex128), a[:-shift]))
 
 
+def dicke_to_poly(
+    c: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    two_j = len(c) - 1
+    k = np.arange(two_j + 1)
+    return np.sqrt(np.asarray(comb(two_j, k), dtype=np.float64)) * c[two_j - k]
+
+
+def _s_minus(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    return _deriv(a)  # Eq. (1) rightmost
+
+
+def _s_plus(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    two_j = len(a) - 1
+    term1 = -_z_mul(_deriv(a), shift=2)  # -ħ z^2 dP/dz
+    term2 = two_j * _z_mul(a, shift=1)  # +2ħj z P
+    return term1 + term2
+
+
+def _s_z(
+    a: np.ndarray[tuple[int], np.dtype[np.complex128]],
+) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
+    j = (len(a) - 1) / 2
+    term = _z_mul(_deriv(a), shift=1)  # z dP/dz
+    return term - j * a
+
+
 class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
     """A class representing a collection of lists of CoherentSpin objects."""
 
@@ -260,34 +291,6 @@ def _get_bargmann_expectation(
     state_coefficients: np.ndarray[Any, np.dtype[np.complex128]],
 ) -> tuple[float, float, float]:
     """Return the expectation values of S_x, S_y, and S_z for a given state vector using bargmann representation operators."""
-
-    def dicke_to_poly(
-        c: np.ndarray[tuple[int], np.dtype[np.complex128]],
-    ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
-        two_j = len(c) - 1
-        k = np.arange(two_j + 1)
-        return np.sqrt(np.asarray(comb(two_j, k), dtype=np.float64)) * c[two_j - k]
-
-    def _s_minus(
-        a: np.ndarray[tuple[int], np.dtype[np.complex128]],
-    ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
-        return _deriv(a)  # Eq. (1) rightmost
-
-    def _s_plus(
-        a: np.ndarray[tuple[int], np.dtype[np.complex128]],
-    ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
-        two_j = len(a) - 1
-        term1 = -_z_mul(_deriv(a), shift=2)  # -ħ z^2 dP/dz
-        term2 = two_j * _z_mul(a, shift=1)  # +2ħj z P
-        return term1 + term2
-
-    def _s_z(
-        a: np.ndarray[tuple[int], np.dtype[np.complex128]],
-    ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
-        j = (len(a) - 1) / 2
-        term = _z_mul(_deriv(a), shift=1)  # z dP/dz
-        return term - j * a
-
     polynomial_coefficients = dicke_to_poly(state_coefficients)
 
     # operator actions
