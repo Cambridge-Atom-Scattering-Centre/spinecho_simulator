@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import datetime
-from functools import wraps
-from itertools import permutations
+from functools import reduce, wraps
+from itertools import permutations, starmap
 from math import factorial
 from typing import TYPE_CHECKING, Literal
 
 import numpy as np
-import scipy.sparse as sp
+import scipy.sparse as sp  # type: ignore[import-untyped]
 from matplotlib import pyplot as plt
 
 if TYPE_CHECKING:
@@ -150,3 +150,15 @@ def symmetriser(n_stars: int) -> sp.csr_matrix:
         projector += _permutation_matrix(n_stars, perm)
     projector /= factorial(n_stars)
     return projector  # idempotent, Hermitian
+
+
+def _spinor(theta: float, phi: float) -> np.ndarray:
+    return np.array(
+        [np.cos(theta / 2.0), np.exp(1j * phi) * np.sin(theta / 2.0)],
+        dtype=complex,
+    )
+
+
+def product_state(stars: np.ndarray) -> np.ndarray:
+    vecs = list(starmap(_spinor, stars))
+    return reduce(np.kron, vecs)
