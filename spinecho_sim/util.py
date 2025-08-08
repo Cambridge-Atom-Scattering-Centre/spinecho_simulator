@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 import scipy.sparse as sp  # type: ignore[import-untyped]
 from matplotlib import pyplot as plt
+from matplotlib.colors import Normalize
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -162,3 +163,49 @@ def _spinor(theta: float, phi: float) -> np.ndarray:
 def product_state(stars: np.ndarray) -> np.ndarray:
     vecs = list(starmap(_spinor, stars))
     return reduce(np.kron, vecs)
+
+
+def kronecker_n(operator_list: list[sp.csr_matrix]) -> sp.csr_matrix:
+    """Compute the Kronecker product of a list of sparse matrices."""
+    return reduce(sp.kron, operator_list)  # type: ignore[return-value]
+
+
+def to_array(sparse_matrix: sp.csr_matrix) -> np.ndarray:
+    """Convert a sparse matrix to a dense numpy array."""
+    return sparse_matrix.toarray()  # type: ignore[return-value]
+
+
+def plot_complex_heatmap(arr: np.ndarray) -> tuple[Figure, Axes]:
+    """Plot a complex-valued array as a heatmap with phase and magnitude."""
+    magnitude = np.abs(arr)
+    phase = np.angle(arr)
+
+    # Normalize magnitude to [0, 1] for alpha
+    mag_norm = magnitude / magnitude.max() if magnitude.max() > 0 else magnitude
+
+    # Map phase to RGB using hsv colormap
+    cmap = plt.get_cmap("hsv")
+    norm = Normalize(-np.pi, np.pi)
+    rgb = cmap(norm(phase))[..., :3]  # shape (..., 3)
+
+    # Create RGBA image: set alpha to normalized magnitude
+    rgba = np.zeros((*arr.shape, 4))
+    rgba[..., :3] = rgb
+    rgba[..., 3] = mag_norm
+
+    fig, ax = plt.subplots()
+    ax.imshow(rgba, interpolation="nearest")
+    ax.set_xlabel("Column")
+    ax.set_ylabel("Row")
+
+    # Attach colorbar for phase using ScalarMappable, and specify the correct axes
+    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    fig.colorbar(sm, ax=ax, label="Phase (radians)")
+
+    return fig, ax
+
+
+def sparse_matmul(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
+    """Matrix multiplication for two sparse matrices, returning a sparse matrix."""
+    return a @ b  # type: ignore[return-value]
