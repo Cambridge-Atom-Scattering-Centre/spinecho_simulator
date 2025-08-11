@@ -10,9 +10,9 @@ from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 from tqdm import tqdm
 
 from spinecho_sim.state import (
+    BaseParticleState,
     ParticleDisplacement,
     ParticleDisplacementList,
-    ParticleState,
     Spin,
     Trajectory,
     TrajectoryList,
@@ -22,7 +22,7 @@ from spinecho_sim.util import timed
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from spinecho_sim.state._state import CoherentParticleState
+    from spinecho_sim.state._state_old import CoherentParticleState
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -105,7 +105,7 @@ class Solenoid:
 
     def simulate_trajectory(
         self,
-        initial_state: ParticleState,
+        initial_state: BaseParticleState,
         n_steps: int = 100,
     ) -> SolenoidTrajectory:
         """Run the spin echo simulation using configured parameters."""
