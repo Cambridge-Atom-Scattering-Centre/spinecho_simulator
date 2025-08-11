@@ -33,21 +33,21 @@ from spinecho_sim.state._spin import (
     get_expectation_values,
 )
 from spinecho_sim.state._state import (
-    ParticleState,
+    BaseParticleState,
 )
-from spinecho_sim.state._trajectory import (
+from spinecho_sim.state._trajectory_old import (
     Trajectory,
     TrajectoryList,
 )
 
 __all__ = [
+    "BaseParticleState",
     "CoherentSpin",
     "CoherentSpinList",
     "GenericSpin",
     "GenericSpinList",
     "ParticleDisplacement",
     "ParticleDisplacementList",
-    "ParticleState",
     "Spin",
     "Trajectory",
     "TrajectoryList",
