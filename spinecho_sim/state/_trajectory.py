@@ -17,7 +17,7 @@ TState = TypeVar("TState", bound=BaseParticleState)
 
 
 @dataclass(kw_only=True, frozen=True)
-class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
+class Trajectory[TState: BaseParticleState](ABC, Sequence[Any]):
     """A trajectory of a particle through the simulation."""
 
     states: tuple[TState, ...]  # All states in the single trajectory
@@ -49,7 +49,7 @@ class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
     def from_states(
         states: Iterable[TState],
         state_type: type[TState],
-    ) -> BaseTrajectory[TState]:
+    ) -> Trajectory[TState]:
         """Create a BaseTrajectory from a list of ParticleStates."""
         states = tuple(states)
         assert states is not None, "No states provided."
@@ -64,7 +64,7 @@ class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
             "All states must have the same displacement."
         )
 
-        return BaseTrajectory(
+        return Trajectory(
             states=states,
             state_type=state_type,
         )
@@ -74,13 +74,13 @@ class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
         return len(self.states)
 
     @overload
-    def __getitem__(self: BaseTrajectory[TState], index: int) -> TState: ...
+    def __getitem__(self: Trajectory[TState], index: int) -> TState: ...
 
     @overload
-    def __getitem__(self, index: slice | int) -> BaseTrajectory[TState]: ...
+    def __getitem__(self, index: slice | int) -> Trajectory[TState]: ...
 
     @override
-    def __getitem__(self, index: int | slice) -> TState | BaseTrajectory[TState]:
+    def __getitem__(self, index: int | slice) -> TState | Trajectory[TState]:
         if isinstance(index, int):
             state = self.states[index]
             # Use self.state_type to construct the correct type
@@ -96,18 +96,18 @@ class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
         )
 
 
-MonatomicTrajectory = BaseTrajectory[MonatomicParticleState]
-DiatomicTrajectory = BaseTrajectory[DiatomicParticleState]
-GenericTrajectory = BaseTrajectory[BaseParticleState]
+MonatomicTrajectory = Trajectory[MonatomicParticleState]
+DiatomicTrajectory = Trajectory[DiatomicParticleState]
+GenericTrajectory = Trajectory[BaseParticleState]
 
 T = TypeVar(
-    "T", bound=BaseTrajectory[Any]
+    "T", bound=Trajectory[Any]
 )  # Use Any if you want to allow any BaseTrajectory
 # Remove TState from the class generic parameters
 
 
 @dataclass(kw_only=True, frozen=True)
-class TrajectoryList[T: BaseTrajectory[Any]](Sequence[T]):
+class TrajectoryList[T: Trajectory[Any]](Sequence[T]):
     """A list of trajectories."""
 
     trajectories: tuple[T, ...]
@@ -123,6 +123,11 @@ class TrajectoryList[T: BaseTrajectory[Any]](Sequence[T]):
             isinstance(trajectory, first_type) for trajectory in self.trajectories
         ):
             msg = "All trajectories must be of the same type."
+            raise ValueError(msg)
+        # Check all trajectories have the same state_type
+        first_state_type = self.trajectories[0].state_type
+        if not all(traj.state_type is first_state_type for traj in self.trajectories):
+            msg = "All trajectories must be of the same state type."
             raise ValueError(msg)
 
     @staticmethod
