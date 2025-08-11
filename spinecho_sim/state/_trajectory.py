@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import Any, TypeVar, overload, override
 
@@ -99,3 +99,61 @@ class BaseTrajectory[TState: BaseParticleState](ABC, Sequence[Any]):
 MonatomicTrajectory = BaseTrajectory[MonatomicParticleState]
 DiatomicTrajectory = BaseTrajectory[DiatomicParticleState]
 GenericTrajectory = BaseTrajectory[BaseParticleState]
+
+T = TypeVar(
+    "T", bound=BaseTrajectory[Any]
+)  # Use Any if you want to allow any BaseTrajectory
+# Remove TState from the class generic parameters
+
+
+@dataclass(kw_only=True, frozen=True)
+class TrajectoryList[T: BaseTrajectory[Any]](Sequence[T]):
+    """A list of trajectories."""
+
+    trajectories: tuple[T, ...]
+
+    def __post_init__(self) -> None:
+        if not self.trajectories:
+            msg = "TrajectoryList must contain at least one trajectory."
+            raise ValueError(msg)
+
+        # Check all trajectories have the same type
+        first_type = type(self.trajectories[0])
+        if not all(
+            isinstance(trajectory, first_type) for trajectory in self.trajectories
+        ):
+            msg = "All trajectories must be of the same type."
+            raise ValueError(msg)
+
+    @staticmethod
+    def from_trajectories(
+        trajectories: Iterable[T],
+    ) -> TrajectoryList[T]:
+        """Create a TrajectoryList from a list of Trajectories."""
+        trajectories = tuple(trajectories)
+        assert trajectories is not None, "No trajectories provided."
+        return TrajectoryList(trajectories=trajectories)
+
+    @override
+    def __len__(self) -> int:
+        return len(self.trajectories)
+
+    @overload
+    def __getitem__(self, index: int) -> T: ...
+    @overload
+    def __getitem__(self, index: slice) -> TrajectoryList[T]: ...
+
+    @override
+    def __getitem__(self, index: int | slice) -> T | TrajectoryList[T]:
+        if isinstance(index, slice):
+            return TrajectoryList(trajectories=self.trajectories[index])
+        return self.trajectories[index]
+
+    @override
+    def __iter__(self) -> Iterator[T]:
+        return iter(self.trajectories)
+
+
+MonatomicTrajectoryList = TrajectoryList[MonatomicTrajectory]
+DiatomicTrajectoryList = TrajectoryList[DiatomicTrajectory]
+GenericTrajectoryList = TrajectoryList[GenericTrajectory]
