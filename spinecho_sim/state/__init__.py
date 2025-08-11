@@ -34,8 +34,14 @@ from spinecho_sim.state._spin import (
 )
 from spinecho_sim.state._state import (
     BaseParticleState,
+    DiatomicParticleState,
+    MonatomicParticleState,
 )
-from spinecho_sim.state._trajectory_old import (
+from spinecho_sim.state._trajectory import (
+    DiatomicTrajectory,
+    DiatomicTrajectoryList,
+    MonatomicTrajectory,
+    MonatomicTrajectoryList,
     Trajectory,
     TrajectoryList,
 )
@@ -44,8 +50,14 @@ __all__ = [
     "BaseParticleState",
     "CoherentSpin",
     "CoherentSpinList",
+    "DiatomicParticleState",
+    "DiatomicTrajectory",
+    "DiatomicTrajectoryList",
     "GenericSpin",
     "GenericSpinList",
+    "MonatomicParticleState",
+    "MonatomicTrajectory",
+    "MonatomicTrajectoryList",
     "ParticleDisplacement",
     "ParticleDisplacementList",
     "Spin",
