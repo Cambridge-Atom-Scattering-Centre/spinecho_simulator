@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from functools import singledispatchmethod
+from typing import TYPE_CHECKING, Any, NoReturn
 
 import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
@@ -11,18 +12,23 @@ from tqdm import tqdm
 
 from spinecho_sim.state import (
     BaseParticleState,
+    DiatomicParticleState,
+    MonatomicParticleState,
     ParticleDisplacement,
     ParticleDisplacementList,
     Spin,
     Trajectory,
     TrajectoryList,
 )
+from spinecho_sim.state._trajectory import MonatomicTrajectory
 from spinecho_sim.util import timed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from spinecho_sim.state._state_old import CoherentParticleState
+    from spinecho_sim.state._state import (
+        CoherentMonatomicParticleState,
+    )
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -57,7 +63,7 @@ class Solenoid:
 
     def _simulate_coherent_trajectory(
         self,
-        initial_state: CoherentParticleState,
+        initial_state: CoherentMonatomicParticleState,
         n_steps: int = 100,
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
@@ -91,7 +97,12 @@ class Solenoid:
             d_phi = d_phi_xy - field[2]
             return effective_ratio * np.array([d_theta, d_phi])
 
-        y0 = np.array([initial_state.spin.theta.item(), initial_state.spin.phi.item()])
+        y0 = np.array(
+            [
+                initial_state.spin_angular_momentum.theta.item(),
+                initial_state.spin_angular_momentum.phi.item(),
+            ]
+        )
 
         sol = solve_ivp(  # type: ignore[return-value]
             fun=_d_angles_dx,
@@ -103,13 +114,25 @@ class Solenoid:
         )
         return np.array(sol.y)[0], np.array(sol.y)[1]  # type: ignore[return-value]
 
-    def simulate_trajectory(
+    @singledispatchmethod
+    def simulate_trajectory(  # noqa: PLR6301
         self,
         initial_state: BaseParticleState,
         n_steps: int = 100,
     ) -> SolenoidTrajectory:
+        msg = f"simulate_trajectory() got unsupported state type {type(initial_state)}"
+        raise TypeError(msg)
+
+    @simulate_trajectory.register
+    def _(
+        self,
+        initial_state: MonatomicParticleState,
+        n_steps: int = 100,
+    ) -> SolenoidTrajectory:
         """Run the spin echo simulation using configured parameters."""
-        data = np.empty((n_steps + 1, initial_state.spin.size, 2), dtype=np.float64)
+        data = np.empty(
+            (n_steps + 1, initial_state.spin_angular_momentum.size, 2), dtype=np.float64
+        )
         for i, s in enumerate(initial_state.as_coherent()):
             thetas, phis = self._simulate_coherent_trajectory(s, n_steps)
             data[:, i, 0] = thetas
@@ -119,18 +142,31 @@ class Solenoid:
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         return SolenoidTrajectory(
-            trajectory=Trajectory(
-                spins=spins,
-                displacement=initial_state.displacement,
-                parallel_velocity=initial_state.parallel_velocity,
+            trajectory=MonatomicTrajectory.from_states(
+                states=[
+                    MonatomicParticleState(
+                        spin_angular_momentum=s,
+                        displacement=initial_state.displacement,
+                        parallel_velocity=initial_state.parallel_velocity,
+                    )
+                    for s in spins
+                ],
+                state_type=MonatomicParticleState,
             ),
             positions=z_points,
         )
 
+    @simulate_trajectory.register
+    def _(
+        self,
+        initial_state: DiatomicParticleState,
+        n_steps: int = 100,
+    ) -> NoReturn: ...
+
     @timed
     def simulate_trajectories(
         self,
-        initial_states: list[ParticleState],
+        initial_states: list[BaseParticleState],
         n_steps: int = 100,
     ) -> SolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
