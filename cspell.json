@@ -29,7 +29,14 @@
         "tqdm",
         "eigvals",
         "monic",
-        "mplot"
+        "mplot",
+        "bargmann",
+        "imshow",
+        "cmap",
+        "kron",
+        "dicke",
+        "spinor",
+        "toarray",
     ],
     "userWords": [
         "Larmor",
