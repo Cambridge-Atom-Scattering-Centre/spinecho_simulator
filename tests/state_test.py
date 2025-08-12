@@ -7,13 +7,12 @@ import pytest
 
 from spinecho_sim.state import (
     CoherentSpin,
-    MonatomicParticleState,
+    MonatomicTrajectory,
+    MonatomicTrajectoryList,
     ParticleDisplacement,
     Spin,
-    Trajectory,
     get_expectation_values,
 )
-from spinecho_sim.state._trajectory import MonatomicTrajectoryList
 
 
 @pytest.mark.parametrize(
@@ -55,7 +54,7 @@ from spinecho_sim.state._trajectory import MonatomicTrajectoryList
         ),  # |y:+1>
         (np.array([1, 0, 1], dtype=np.complex128) / np.sqrt(2), 0, 0, 0.0),  # |y:0>
         (
-            np.array([-1, 1j * np.sqrt(2), 1], dtype=np.complex128) / 2,
+            np.array([1, -1j * np.sqrt(2), -1], dtype=np.complex128) / 2,
             0,
             1,
             0.0,
@@ -156,39 +155,23 @@ def test_trajectory_list() -> None:
         CoherentSpin(theta=np.pi / 2, phi=0).as_generic(n_stars=n_stars),
         CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=n_stars),
     ]
-    trajectory = Trajectory[MonatomicParticleState](
-        states=tuple(
-            MonatomicParticleState(
-                spin_angular_momentum=spin,
-                displacement=ParticleDisplacement(r=0, theta=0),
-                parallel_velocity=10.0,
-            )
-            for spin in spins
-        ),
-        state_type=MonatomicParticleState,
+    trajectory = MonatomicTrajectory(
+        spin_angular_momentum=Spin.from_iter(spins),
+        displacement=ParticleDisplacement(r=0, theta=0),
+        parallel_velocity=10.0,
     )
     trajectory_list = MonatomicTrajectoryList.from_trajectories([trajectory])
 
     assert len(trajectory_list) == 1
-    # assert trajectory_list.spins.n_stars == n_stars
+    assert trajectory_list.spin_angular_momentum.n_stars == n_stars
 
-    # np.testing.assert_array_equal(
-    #     trajectory_list.spins.theta[0, ..., 0],
-    #     trajectory.spins.theta[..., 0],
-    #     err_msg="Theta values do not match",
-    # )
-    # np.testing.assert_array_equal(
-    #     trajectory_list.spins.phi[0, ..., 0],
-    #     trajectory.spins.phi[..., 0],
-    #     err_msg="Phi values do not match",
-    # )
     np.testing.assert_array_equal(
-        np.asarray(trajectory_list.spins[0].theta)[..., 0],
-        np.asarray(trajectory.spins.theta)[..., 0],
+        trajectory_list.spin_angular_momentum.theta[0, ..., 0],
+        trajectory.spin_angular_momentum.theta[..., 0],
         err_msg="Theta values do not match",
     )
     np.testing.assert_array_equal(
-        np.asarray(trajectory_list.spins[0].phi)[..., 0],
-        np.asarray(trajectory.spins.phi)[..., 0],
+        trajectory_list.spin_angular_momentum.phi[0, ..., 0],
+        trajectory.spin_angular_momentum.phi[..., 0],
         err_msg="Phi values do not match",
     )
