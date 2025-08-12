@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from spinecho_sim.state._spin import GenericSpin
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class BaseParticleState(ABC):
     """Data every species carries: trajectory *not* dynamics."""
 
@@ -29,15 +29,15 @@ class BaseParticleState(ABC):
     def as_coherent(self) -> Sequence[CoherentParticleState]: ...
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class DiatomicParticleState(BaseParticleState):
     nuclear_angular_momentum: GenericSpin  # I
-    rotation_angular_momentum: GenericSpin  # N
+    rotational_angular_momentum: GenericSpin  # N
 
     @property
     @override
     def spins(self) -> tuple[GenericSpin, GenericSpin]:
-        return (self.nuclear_angular_momentum, self.rotation_angular_momentum)
+        return (self.nuclear_angular_momentum, self.rotational_angular_momentum)
 
     @property
     def i(self) -> GenericSpin:
@@ -45,32 +45,32 @@ class DiatomicParticleState(BaseParticleState):
 
     @property
     def j(self) -> GenericSpin:
-        return self.rotation_angular_momentum
+        return self.rotational_angular_momentum
 
     @override
     def as_coherent(self) -> Sequence[CoherentDiatomicParticleState]:
         return [
             CoherentDiatomicParticleState(
                 nuclear_angular_momentum=nuc.as_generic(),
-                rotation_angular_momentum=rot.as_generic(),
+                rotational_angular_momentum=rot.as_generic(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
             )
             for nuc, rot in product(
                 self.nuclear_angular_momentum.flat_iter(),
-                self.rotation_angular_momentum.flat_iter(),
+                self.rotational_angular_momentum.flat_iter(),
             )
         ]
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class CoherentDiatomicParticleState(DiatomicParticleState):
     def __post_init__(self) -> None:
         assert self.nuclear_angular_momentum.size == 1
-        assert self.rotation_angular_momentum.size == 1
+        assert self.rotational_angular_momentum.size == 1
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class MonatomicParticleState(BaseParticleState):
     spin_angular_momentum: GenericSpin
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
@@ -93,7 +93,7 @@ class MonatomicParticleState(BaseParticleState):
         ]
 
 
-@dataclass(frozen=True, kw_only=True, slots=True)
+@dataclass(frozen=True, kw_only=True)
 class CoherentMonatomicParticleState(MonatomicParticleState):
     def __post_init__(self) -> None:
         assert self.spin_angular_momentum.size == 1, (

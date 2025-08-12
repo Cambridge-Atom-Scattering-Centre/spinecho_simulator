@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from spinecho_sim.solenoid import Solenoid, SolenoidSimulationResult, SolenoidTrajectory
-from spinecho_sim.state import BaseParticleState
+from spinecho_sim.state import MonatomicParticleState
 
 __all__ = [
-    "BaseParticleState",
+    "MonatomicParticleState",
     "Solenoid",
     "SolenoidSimulationResult",
     "SolenoidTrajectory",
