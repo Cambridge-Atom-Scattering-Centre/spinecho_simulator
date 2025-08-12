@@ -37,6 +37,7 @@
         "dicke",
         "spinor",
         "toarray",
+        "tocsr",
     ],
     "userWords": [
         "Larmor",
