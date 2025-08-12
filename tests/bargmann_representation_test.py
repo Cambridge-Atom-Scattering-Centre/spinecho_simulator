@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from spinecho_sim.state import Spin
-from spinecho_sim.state._spin import (
-    get_bargmann_expectation_values,  # noqa: PLC2701
-)
+from spinecho_sim.state import Spin, get_bargmann_expectation_values
 
 c1 = np.array([1, 1, 1], dtype=complex) / np.sqrt(3)
 c2 = np.array([1, 0, 0], dtype=complex)

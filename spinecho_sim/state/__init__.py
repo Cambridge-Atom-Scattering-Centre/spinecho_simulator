@@ -30,6 +30,7 @@ from spinecho_sim.state._spin import (
     GenericSpin,
     GenericSpinList,
     Spin,
+    get_bargmann_expectation_values,
     get_expectation_values,
 )
 from spinecho_sim.state._state import (
@@ -63,6 +64,7 @@ __all__ = [
     "Spin",
     "Trajectory",
     "TrajectoryList",
+    "get_bargmann_expectation_values",
     "get_expectation_values",
     "sample_constant_displacement",
     "sample_constant_velocity",
