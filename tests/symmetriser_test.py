@@ -50,7 +50,7 @@ def test_symmetriser(input_spin: Spin, expected_output: np.ndarray) -> None:
         np.linalg.matrix_rank(p_sym.toarray()),
         err_msg="Symmetriser rank mismatch.",
     )
-    output_state = p_sym @ product_state(input_spin._spins)
+    output_state = p_sym @ product_state(input_spin._spins)  # noqa: SLF001
     output_state /= np.linalg.norm(output_state)  # normalise
     np.testing.assert_array_almost_equal(
         output_state,
