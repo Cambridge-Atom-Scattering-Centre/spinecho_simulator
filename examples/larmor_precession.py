@@ -3,15 +3,15 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.solenoid._plot import (
+from spinecho_sim.solenoid import (
+    MonatomicSolenoid,
     plot_expectation_trajectory,
 )
-from spinecho_sim.solenoid._solenoid import MonatomicSolenoid
 from spinecho_sim.state import (
     CoherentSpin,
+    MonatomicParticleState,
     ParticleDisplacement,
 )
-from spinecho_sim.state._state import MonatomicParticleState
 
 if __name__ == "__main__":
     # When a particle is placed in a solenoid, it will precess around the magnetic field axis.

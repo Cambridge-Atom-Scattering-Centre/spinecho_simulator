@@ -119,13 +119,8 @@ class Spin[S: tuple[int, ...]](Sequence[Any]):  # noqa: PLR0904
         return False
 
     @override
-    # def __hash__(self) -> int:
-    #     return hash((self.theta, self.phi))
     def __hash__(self) -> int:
-        # Convert arrays to tuples for hashing
-        theta = tuple(np.atleast_1d(self.theta).tolist())
-        phi = tuple(np.atleast_1d(self.phi).tolist())
-        return hash((theta, phi))
+        return hash((self.theta, self.phi))
 
     @property
     def ndim(self) -> int:

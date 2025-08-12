@@ -161,6 +161,7 @@ def _spinor(theta: float, phi: float) -> np.ndarray:
 
 
 def product_state(stars: np.ndarray) -> np.ndarray:
+    """Create a product state from a list of majorana stars."""
     vecs = list(starmap(_spinor, stars))
     return reduce(np.kron, vecs)
 
