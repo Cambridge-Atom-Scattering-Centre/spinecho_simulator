@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from functools import singledispatchmethod
-from typing import TYPE_CHECKING, Any, NoReturn
+from typing import TYPE_CHECKING, Any, override
 
 import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 from tqdm import tqdm
 
 from spinecho_sim.state import (
-    BaseParticleState,
     DiatomicParticleState,
     MonatomicParticleState,
     ParticleDisplacement,
@@ -20,28 +19,35 @@ from spinecho_sim.state import (
     Trajectory,
     TrajectoryList,
 )
-from spinecho_sim.state._trajectory import MonatomicTrajectory
+from spinecho_sim.state._state import (
+    CoherentMonatomicParticleState,
+)
+from spinecho_sim.state._trajectory import (
+    DiatomicTrajectory,
+    DiatomicTrajectoryList,
+    MonatomicTrajectory,
+    MonatomicTrajectoryList,
+)
 from spinecho_sim.util import timed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from spinecho_sim.state._state import (
-        CoherentMonatomicParticleState,
+        CoherentDiatomicParticleState,
     )
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidTrajectory:
+class SolenoidTrajectory(ABC):
     """Represents the trajectory of a particle as it moves through the simulation."""
 
-    trajectory: Trajectory[MonatomicParticleState] | Trajectory[DiatomicParticleState]
+    trajectory: Trajectory
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
-    def spins(self) -> tuple[Spin[tuple[int]], ...]:
-        """The spin components from the simulation states."""
-        return tuple(spin for state in self.trajectory.states for spin in state.spins)
+    @abstractmethod
+    def spins(self) -> tuple[Spin[tuple[int, int]], ...]: ...
 
     @property
     def displacement(self) -> ParticleDisplacement:
@@ -50,7 +56,78 @@ class SolenoidTrajectory:
 
 
 @dataclass(kw_only=True, frozen=True)
-class Solenoid:
+class MonatomicSolenoidTrajectory(SolenoidTrajectory):
+    """Represents the trajectory of a monatomic particle in a solenoid."""
+
+    trajectory: MonatomicTrajectory
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int]], ...]:
+        """The spin components from the simulation states."""
+        return (self.trajectory.spin_angular_momentum,)
+
+
+@dataclass(kw_only=True, frozen=True)
+class DiatomicSolenoidTrajectory(SolenoidTrajectory):
+    """Represents the trajectory of a diatomic particle in a solenoid."""
+
+    trajectory: DiatomicTrajectory
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int]], ...]:
+        """The spin components from the simulation states."""
+        return (
+            self.trajectory.nuclear_angular_momentum,
+            self.trajectory.rotational_angular_momentum,
+        )
+
+
+@dataclass(kw_only=True, frozen=True)
+class SolenoidSimulationResult(ABC):
+    """Represents the result of a solenoid simulation."""
+
+    trajectories: TrajectoryList
+    positions: np.ndarray[Any, np.dtype[np.floating]]
+
+    @property
+    @abstractmethod
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]: ...
+
+    @property
+    def displacements(self) -> ParticleDisplacementList:
+        """Extract the displacements from the simulation states."""
+        return self.trajectories.displacements
+
+
+@dataclass(kw_only=True, frozen=True)
+class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
+    trajectories: MonatomicTrajectoryList
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
+        """Extract the spin components from the simulation states."""
+        return (self.trajectories.spin_angular_momentum,)
+
+
+@dataclass(kw_only=True, frozen=True)
+class DiatomicSolenoidSimulationResult(SolenoidSimulationResult):
+    trajectories: DiatomicTrajectoryList
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
+        """Extract the spin components from the simulation states."""
+        return (
+            self.trajectories.nuclear_angular_momentum,
+            self.trajectories.rotational_angular_momentum,
+        )
+
+
+@dataclass(kw_only=True, frozen=True)
+class Solenoid(ABC):
     """Dataclass representing a solenoid with its parameters."""
 
     length: float
@@ -79,14 +156,75 @@ class Solenoid:
             strength=lambda z: b_z * np.sin(np.pi * z / length) ** 2,
         )
 
+    @abstractmethod
     def _simulate_coherent_trajectory(
         self,
-        initial_state: CoherentMonatomicParticleState,
+        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
+        n_steps: int = 100,
+    ) -> tuple[
+        np.ndarray[Any, np.dtype[np.floating]],
+        np.ndarray[Any, np.dtype[np.floating]],
+    ]: ...
+
+    @abstractmethod
+    def simulate_trajectory(
+        self,
+        initial_state: MonatomicParticleState | DiatomicParticleState,
+        n_steps: int = 100,
+    ) -> SolenoidTrajectory: ...
+
+    @timed
+    @abstractmethod
+    def simulate_trajectories(
+        self,
+        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
+        n_steps: int = 100,
+    ) -> SolenoidSimulationResult: ...
+
+
+def _get_field(
+    z: float,
+    displacement: ParticleDisplacement,
+    solenoid: Solenoid,
+    dz: float = 1e-5,
+) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
+    if displacement.r == 0:
+        return solenoid.field(z)
+
+    # Assuming that there is no current in the solenoid, we can
+    # calculate the field at any point using grad.B = 0. We do this
+    b_z_values = [solenoid.field(zi)[2] for zi in (z - dz, z, z + dz)]
+
+    b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)
+    b0_pp = (b_z_values[2] - 2 * b_z_values[1] + b_z_values[0]) / (dz**2)
+
+    b_r = -0.5 * displacement.r * b0_p
+    db_z = -0.25 * displacement.r**2 * b0_pp
+
+    return np.array(
+        [
+            b_r * np.cos(displacement.theta),
+            b_r * np.sin(displacement.theta),
+            b_z_values[1] + db_z,
+        ]
+    )
+
+
+@dataclass(kw_only=True, frozen=True)
+class MonatomicSolenoid(Solenoid):
+    @override
+    def _simulate_coherent_trajectory(
+        self,
+        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
         n_steps: int = 100,
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
         np.ndarray[Any, np.dtype[np.floating]],
     ]:
+        assert isinstance(initial_state, CoherentMonatomicParticleState), (
+            "Expected a coherent monatomic particle state."
+        )
+
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         gyromagnetic_ratio = (
@@ -132,22 +270,17 @@ class Solenoid:
         )
         return np.array(sol.y)[0], np.array(sol.y)[1]  # type: ignore[return-value]
 
-    @singledispatchmethod
-    def simulate_trajectory(  # noqa: PLR6301
+    @override
+    def simulate_trajectory(
         self,
-        initial_state: BaseParticleState,
-        n_steps: int = 100,  # noqa: ARG002
-    ) -> SolenoidTrajectory:
-        msg = f"simulate_trajectory() got unsupported state type {type(initial_state)}"
-        raise TypeError(msg)
-
-    @simulate_trajectory.register
-    def _(
-        self,
-        initial_state: MonatomicParticleState,
+        initial_state: MonatomicParticleState | DiatomicParticleState,
         n_steps: int = 100,
-    ) -> SolenoidTrajectory:
+    ) -> MonatomicSolenoidTrajectory:
         """Run the spin echo simulation using configured parameters."""
+        assert isinstance(initial_state, MonatomicParticleState), (
+            "Expected a coherent monatomic particle state."
+        )
+
         data = np.empty(
             (n_steps + 1, initial_state.spin_angular_momentum.size, 2), dtype=np.float64
         )
@@ -159,41 +292,38 @@ class Solenoid:
         spins = Spin[tuple[int, int]](data)
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
-        return SolenoidTrajectory(
-            trajectory=MonatomicTrajectory.from_states(
-                states=[
-                    MonatomicParticleState(
-                        spin_angular_momentum=s,
-                        displacement=initial_state.displacement,
-                        parallel_velocity=initial_state.parallel_velocity,
-                    )
-                    for s in spins
-                ],
-                state_type=MonatomicParticleState,
+        return MonatomicSolenoidTrajectory(
+            trajectory=MonatomicTrajectory(
+                spin_angular_momentum=spins,
+                displacement=initial_state.displacement,
+                parallel_velocity=initial_state.parallel_velocity,
             ),
             positions=z_points,
         )
 
-    @simulate_trajectory.register
-    def _(
-        self,
-        initial_state: DiatomicParticleState,
-        n_steps: int = 100,
-    ) -> NoReturn: ...
-
     @timed
+    @override
     def simulate_trajectories(
         self,
-        initial_states: list[DiatomicParticleState] | list[MonatomicParticleState],
+        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
         n_steps: int = 100,
-    ) -> SolenoidSimulationResult:
+    ) -> MonatomicSolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
+        mono_initial_states = [
+            state
+            for state in initial_states
+            if isinstance(state, MonatomicParticleState)
+        ]
+        assert mono_initial_states, "No MonatomicParticleState instances provided."
+
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
-        return SolenoidSimulationResult(
-            trajectories=TrajectoryList[Trajectory[Any]].from_trajectories(
+        return MonatomicSolenoidSimulationResult(
+            trajectories=MonatomicTrajectoryList.from_trajectories(
                 [
                     self.simulate_trajectory(state, n_steps).trajectory
-                    for state in tqdm(initial_states, desc="Simulating Trajectories")
+                    for state in tqdm(
+                        mono_initial_states, desc="Simulating Trajectories"
+                    )
                 ]
             ),
             positions=z_points,
@@ -201,55 +331,34 @@ class Solenoid:
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidSimulationResult:
-    """Represents the result of a solenoid simulation."""
+class DiatomicSolenoid(Solenoid):
+    @override
+    def _simulate_coherent_trajectory(
+        self,
+        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
+        n_steps: int = 100,
+    ) -> tuple[
+        np.ndarray[Any, np.dtype[np.floating]],
+        np.ndarray[Any, np.dtype[np.floating]],
+    ]:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
 
-    trajectories: TrajectoryList[
-        Trajectory[MonatomicParticleState] | Trajectory[DiatomicParticleState]
-    ]
-    positions: np.ndarray[Any, np.dtype[np.floating]]
+    @override
+    def simulate_trajectory(
+        self,
+        initial_state: MonatomicParticleState | DiatomicParticleState,
+        n_steps: int = 100,
+    ) -> MonatomicSolenoidTrajectory:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
 
-    @property
-    def spins(self) -> Spin[tuple[int, int]]:
-        """Extract the spin components from the simulation states."""
-        # Flatten all spins from all states in all trajectories
-        all_spins = (
-            spin
-            for t in self.trajectories
-            for state in t.states
-            for spin in state.spins
-        )
-        return Spin.from_iter(all_spins)
-
-    @property
-    def displacements(self) -> ParticleDisplacementList:
-        """Extract the displacements from the simulation states."""
-        return self.trajectories.displacements
-
-
-def _get_field(
-    z: float,
-    displacement: ParticleDisplacement,
-    solenoid: Solenoid,
-    dz: float = 1e-5,
-) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
-    if displacement.r == 0:
-        return solenoid.field(z)
-
-    # Assuming that there is no current in the solenoid, we can
-    # calculate the field at any point using grad.B = 0. We do this
-    b_z_values = [solenoid.field(zi)[2] for zi in (z - dz, z, z + dz)]
-
-    b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)
-    b0_pp = (b_z_values[2] - 2 * b_z_values[1] + b_z_values[0]) / (dz**2)
-
-    b_r = -0.5 * displacement.r * b0_p
-    db_z = -0.25 * displacement.r**2 * b0_pp
-
-    return np.array(
-        [
-            b_r * np.cos(displacement.theta),
-            b_r * np.sin(displacement.theta),
-            b_z_values[1] + db_z,
-        ]
-    )
+    @timed
+    @override
+    def simulate_trajectories(
+        self,
+        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
+        n_steps: int = 100,
+    ) -> MonatomicSolenoidSimulationResult:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
