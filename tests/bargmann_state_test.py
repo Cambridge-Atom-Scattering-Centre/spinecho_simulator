@@ -8,8 +8,6 @@ import pytest
 from spinecho_sim.state import (
     CoherentSpin,
     Spin,
-)
-from spinecho_sim.state._spin import (
     get_bargmann_expectation_values,
 )
 
