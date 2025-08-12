@@ -30,12 +30,12 @@ def plot_spin_state(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    states = result.spins.momentum_states[idx, :, :]
+    states = result.spins[0].momentum_states[idx, :, :]
     state_measure = measure_data(states, measure)
 
     average_state_measure = np.average(state_measure, axis=0)
 
-    n_stars = result.spins.n_stars
+    n_stars = result.spins[0].n_stars
     s = n_stars / 2
     ms_values = np.linspace(s, -s, n_stars + 1, endpoint=True)
     ms_labels = [
@@ -80,7 +80,7 @@ def plot_state_intensity(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    states = result.spins.momentum_states[idx]
+    states = result.spins[0].momentum_states[idx]
     average_state_abs = np.average(np.abs(states) ** 2, axis=0)
 
     (line,) = ax.plot(
@@ -98,7 +98,7 @@ def plot_state_intensity(
 
 
 def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    n_stars = result.spins.n_stars
+    n_stars = result.spins[0].n_stars
     fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
     for idx, (ax_abs, ax_arg) in enumerate(axes):
@@ -119,7 +119,7 @@ def plot_expectation_value(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins)[idx, :]
+    expectation_values = get_expectation_values(result.spins[0])[idx, :]
 
     average_state_measure = np.average(expectation_values, axis=0)
     labels = [
@@ -177,7 +177,7 @@ def plot_expectation_phi(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins)
+    expectation_values = get_expectation_values(result.spins[0])
 
     wrapped_phi = np.arctan2(
         expectation_values[1, :], expectation_values[0, :]
@@ -221,7 +221,7 @@ def plot_expectation_theta(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins)
+    expectation_values = get_expectation_values(result.spins[0])
 
     wrapped_theta = np.arctan2(
         np.sqrt(expectation_values[0, :] ** 2 + expectation_values[1, :] ** 2),
@@ -275,7 +275,7 @@ def plot_expectation_trajectory(
     fig = plt.figure(figsize=(6, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = get_expectation_values(trajectory.spins)
+    expectations = get_expectation_values(trajectory.spins[0])
 
     # Plot the trajectory as a 3D curve
     (line,) = ax.plot(expectations[0, :], expectations[1, :], expectations[2, :])
@@ -291,7 +291,7 @@ def plot_expectation_trajectories(
     fig = plt.figure(figsize=(8, 8))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = get_expectation_values(trajectories.spins)
+    expectations = get_expectation_values(trajectories.spins[0])
     # Average over samples (axis=1), shape: (3, n_positions)
     avg_expectations = np.average(expectations, axis=1)
 

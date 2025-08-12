@@ -176,6 +176,10 @@ class TrajectoryList(ABC, Sequence[Trajectory]):
     @abstractmethod
     def __post_init__(self) -> None: ...
 
+    @property
+    @abstractmethod
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]: ...
+
     @staticmethod
     @abstractmethod
     def from_trajectories(
@@ -206,6 +210,11 @@ class MonatomicTrajectoryList(TrajectoryList):
         ):
             msg = "Spins must be a 2D array, parallel velocities and displacements must be 1D arrays, and their shapes must match."
             raise ValueError(msg)
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
+        return (self.spin_angular_momentum,)
 
     @staticmethod
     @override
@@ -280,6 +289,11 @@ class DiatomicTrajectoryList(TrajectoryList):
         ):
             msg = "Spins must be a 2D array, parallel velocities and displacements must be 1D arrays, and their shapes must match."
             raise ValueError(msg)
+
+    @property
+    @override
+    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
+        return (self.nuclear_angular_momentum, self.rotational_angular_momentum)
 
     @staticmethod
     @override

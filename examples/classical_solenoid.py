@@ -5,9 +5,9 @@ import numpy as np
 
 from spinecho_sim import (
     MonatomicParticleState,
-    Solenoid,
 )
 from spinecho_sim.solenoid import (
+    MonatomicSolenoid,
     plot_spin_states,
 )
 from spinecho_sim.state import (
@@ -37,14 +37,14 @@ if __name__ == "__main__":
         )
     ]
 
-    solenoid = Solenoid.from_experimental_parameters(
+    solenoid = MonatomicSolenoid.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.1,
     )
     result = solenoid.simulate_trajectories(initial_states, n_steps=1000)
 
-    n_stars = result.spins.n_stars
+    n_stars = result.spins[0].n_stars
     S = n_stars / 2
     S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
 
