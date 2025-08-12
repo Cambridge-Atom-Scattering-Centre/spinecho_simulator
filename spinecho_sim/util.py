@@ -144,11 +144,16 @@ def _permutation_matrix(n_stars: int, perm: tuple[int, ...]) -> sp.csr_matrix:
     return sp.csr_matrix(sp.coo_matrix((data, (rows, cols)), shape=(dim, dim)))
 
 
+def csr_add(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
+    """Typed CSR + CSR → CSR."""
+    return (a + b).tocsr()  # type: ignore
+
+
 def symmetriser(n_stars: int) -> sp.csr_matrix:
     """(2^N x 2^N) projector onto the totally-symmetric subspace."""
     projector = sp.csr_matrix((2**n_stars, 2**n_stars), dtype=np.float64)
     for perm in permutations(range(n_stars)):
-        projector += _permutation_matrix(n_stars, perm)
+        projector = csr_add(projector, _permutation_matrix(n_stars, perm))
     projector /= factorial(n_stars)
     return projector  # idempotent, Hermitian
 
