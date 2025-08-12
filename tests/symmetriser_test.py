@@ -2,10 +2,9 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from scipy.sparse import csr_matrix  # type: ignore[import]
 
 from spinecho_sim.state import CoherentSpin, Spin
-from spinecho_sim.util import product_state, sparse_matmul, symmetriser, to_array
+from spinecho_sim.util import product_state, symmetriser, to_array
 
 
 @pytest.mark.parametrize(
@@ -51,10 +50,9 @@ def test_symmetriser(input_spin: Spin[tuple[int]], expected_output: np.ndarray) 
         np.linalg.matrix_rank(to_array(p_sym)),
         err_msg="Symmetriser rank mismatch.",
     )
-    dense_state = product_state(input_spin._spins)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
-    sparse_state = csr_matrix(dense_state)  # Convert dense array to csr_matrix
-    output_state = sparse_matmul(p_sym, sparse_state)
-    output_state /= np.linalg.norm(to_array(output_state))
+
+    output_state = to_array(p_sym) @ product_state(input_spin._spins)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+    output_state /= np.linalg.norm(output_state)  # normalise
     np.testing.assert_array_almost_equal(
         output_state,
         expected_output,
