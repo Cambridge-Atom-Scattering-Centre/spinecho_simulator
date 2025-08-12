@@ -32,6 +32,24 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True, frozen=True)
+class SolenoidTrajectory:
+    """Represents the trajectory of a particle as it moves through the simulation."""
+
+    trajectory: Trajectory[MonatomicParticleState] | Trajectory[DiatomicParticleState]
+    positions: np.ndarray[Any, np.dtype[np.floating]]
+
+    @property
+    def spins(self) -> tuple[Spin[tuple[int]], ...]:
+        """The spin components from the simulation states."""
+        return tuple(spin for state in self.trajectory.states for spin in state.spins)
+
+    @property
+    def displacement(self) -> ParticleDisplacement:
+        """The displacement of the particle at the end of the trajectory."""
+        return self.trajectory.displacement
+
+
+@dataclass(kw_only=True, frozen=True)
 class Solenoid:
     """Dataclass representing a solenoid with its parameters."""
 
@@ -118,7 +136,7 @@ class Solenoid:
     def simulate_trajectory(  # noqa: PLR6301
         self,
         initial_state: BaseParticleState,
-        n_steps: int = 100,
+        n_steps: int = 100,  # noqa: ARG002
     ) -> SolenoidTrajectory:
         msg = f"simulate_trajectory() got unsupported state type {type(initial_state)}"
         raise TypeError(msg)
@@ -166,13 +184,13 @@ class Solenoid:
     @timed
     def simulate_trajectories(
         self,
-        initial_states: list[BaseParticleState],
+        initial_states: list[DiatomicParticleState] | list[MonatomicParticleState],
         n_steps: int = 100,
     ) -> SolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
         return SolenoidSimulationResult(
-            trajectories=TrajectoryList.from_trajectories(
+            trajectories=TrajectoryList[Trajectory[Any]].from_trajectories(
                 [
                     self.simulate_trajectory(state, n_steps).trajectory
                     for state in tqdm(initial_states, desc="Simulating Trajectories")
@@ -183,34 +201,25 @@ class Solenoid:
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidTrajectory:
-    """Represents the trajectory of a particle as it moves through the simulation."""
+class SolenoidSimulationResult:
+    """Represents the result of a solenoid simulation."""
 
-    trajectory: Trajectory
+    trajectories: TrajectoryList[
+        Trajectory[MonatomicParticleState] | Trajectory[DiatomicParticleState]
+    ]
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
     def spins(self) -> Spin[tuple[int, int]]:
-        """The spin components from the simulation states."""
-        return self.trajectory.spins
-
-    @property
-    def displacement(self) -> ParticleDisplacement:
-        """The displacement of the particle at the end of the trajectory."""
-        return self.trajectory.displacement
-
-
-@dataclass(kw_only=True, frozen=True)
-class SolenoidSimulationResult:
-    """Represents the result of a solenoid simulation."""
-
-    trajectories: TrajectoryList
-    positions: np.ndarray[Any, np.dtype[np.floating]]
-
-    @property
-    def spins(self) -> Spin[tuple[int, int, int]]:
         """Extract the spin components from the simulation states."""
-        return self.trajectories.spins
+        # Flatten all spins from all states in all trajectories
+        all_spins = (
+            spin
+            for t in self.trajectories
+            for state in t.states
+            for spin in state.spins
+        )
+        return Spin.from_iter(all_spins)
 
     @property
     def displacements(self) -> ParticleDisplacementList:

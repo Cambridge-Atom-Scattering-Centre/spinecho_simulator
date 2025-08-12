@@ -37,13 +37,13 @@ mstate2 = MonatomicParticleState(
 # Diatomic test states
 diatomic_state_1 = DiatomicParticleState(
     nuclear_angular_momentum=spin_1,
-    rotation_angular_momentum=spin_2,
+    rotational_angular_momentum=spin_2,
     displacement=disp,
     parallel_velocity=1.0,
 )
 diatomic_state_2 = DiatomicParticleState(
     nuclear_angular_momentum=spin_2,
-    rotation_angular_momentum=spin_1,
+    rotational_angular_momentum=spin_1,
     displacement=disp,
     parallel_velocity=1.0,
 )

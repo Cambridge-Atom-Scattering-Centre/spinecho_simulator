@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from spinecho_sim.solenoid._solenoid import (
         SolenoidSimulationResult,
     )
-    from spinecho_sim.state._trajectory_old import Trajectory, TrajectoryList
+    from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
 
 
 def plot_spin_state(

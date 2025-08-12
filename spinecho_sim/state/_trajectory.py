@@ -1,164 +1,345 @@
 from __future__ import annotations
 
-from abc import ABC
+from abc import ABC, abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
-from typing import Any, TypeVar, overload, override
+from typing import TYPE_CHECKING, Any, overload, override
 
 import numpy as np
 
-from spinecho_sim.state._state import (
-    BaseParticleState,
+from spinecho_sim.state import (
     DiatomicParticleState,
     MonatomicParticleState,
+    ParticleDisplacementList,
+    Spin,
 )
 
-TState = TypeVar("TState", bound=BaseParticleState)
+if TYPE_CHECKING:
+    from spinecho_sim.state import (
+        GenericSpinList,
+        ParticleDisplacement,
+    )
 
 
 @dataclass(kw_only=True, frozen=True)
-class Trajectory[TState: BaseParticleState](ABC, Sequence[Any]):
+class Trajectory(ABC, Sequence[Any]):
     """A trajectory of a particle through the simulation."""
 
-    states: tuple[TState, ...]  # All states in the single trajectory
-    state_type: type[TState]  # Type of the states in the trajectory
-
-    def __post_init__(self) -> None:
-        if not self.states:
-            msg = "Trajectory must contain at least one state."
-            raise ValueError(msg)
-
-        # all kinematics identical?
-        initial_displacement = self.states[0].displacement
-        initial_velocity = self.states[0].parallel_velocity
-
-        if not all(state.displacement == initial_displacement for state in self.states):
-            msg = "All states must share the same displacement."
-            raise ValueError(msg)
-        if not all(
-            np.isclose(state.parallel_velocity, initial_velocity)
-            for state in self.states
-        ):
-            msg = "All states must share the same parallel velocity."
-            raise ValueError(msg)
-
-        object.__setattr__(self, "displacement", initial_displacement)
-        object.__setattr__(self, "parallel_velocity", float(initial_velocity))
+    displacement: ParticleDisplacement
+    parallel_velocity: float
 
     @staticmethod
+    @abstractmethod
     def from_states(
-        states: Iterable[TState],
-        state_type: type[TState],
-    ) -> Trajectory[TState]:
-        """Create a BaseTrajectory from a list of ParticleStates."""
-        states = tuple(states)
-        assert states is not None, "No states provided."
+        states: Iterable[MonatomicParticleState] | Iterable[DiatomicParticleState],
+    ) -> Trajectory: ...
 
-        velocities = np.array([state.parallel_velocity for state in states])
+    @override
+    def __len__(self) -> int:
+        return self.spins[0].shape[0]
+
+    @property
+    @abstractmethod
+    def spins(self) -> tuple[GenericSpinList, ...]: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class MonatomicTrajectory(Trajectory):
+    spin_angular_momentum: GenericSpinList
+
+    @staticmethod
+    @override
+    def from_states(
+        states: Iterable[MonatomicParticleState] | Iterable[DiatomicParticleState],
+    ) -> MonatomicTrajectory:
+        """Create a Trajectory from a list of ParticleStates."""
+        mono_states = [s for s in states if isinstance(s, MonatomicParticleState)]
+        assert mono_states is not None, "No MonatomicParticleState instances provided."
+
+        velocities = np.array([state.parallel_velocity for state in mono_states])
         assert np.allclose(velocities, velocities[0]), (
             "All states must have the same velocity."
         )
-
-        displacements = [state.displacement for state in states]
+        displacements = [state.displacement for state in mono_states]
         assert all(d == displacements[0] for d in displacements), (
             "All states must have the same displacement."
         )
 
-        return Trajectory(
-            states=states,
-            state_type=state_type,
+        return MonatomicTrajectory(
+            spin_angular_momentum=Spin.from_iter(
+                spin for s in mono_states for spin in s.spins
+            ),
+            displacement=displacements[0],
+            parallel_velocity=velocities[0],
         )
 
+    @property
     @override
-    def __len__(self) -> int:
-        return len(self.states)
+    def spins(self) -> tuple[GenericSpinList, ...]:
+        return (self.spin_angular_momentum,)
 
     @overload
-    def __getitem__(self: Trajectory[TState], index: int) -> TState: ...
+    def __getitem__(self: Trajectory, index: int) -> MonatomicParticleState: ...
 
     @overload
-    def __getitem__(self, index: slice | int) -> Trajectory[TState]: ...
+    def __getitem__(self, index: slice | int) -> MonatomicTrajectory: ...
 
     @override
-    def __getitem__(self, index: int | slice) -> TState | Trajectory[TState]:
+    def __getitem__(
+        self, index: int | slice
+    ) -> MonatomicParticleState | MonatomicTrajectory:
         if isinstance(index, int):
-            state = self.states[index]
-            # Use self.state_type to construct the correct type
-            return self.state_type(
-                **{
-                    field: getattr(state, field)
-                    for field in self.state_type.__dataclass_fields__
-                }
+            return MonatomicParticleState(
+                spin_angular_momentum=self.spins[0][index],
+                displacement=self.displacement,
+                parallel_velocity=self.parallel_velocity,
             )
-        return type(self)(
-            states=self.states[index],
-            state_type=self.state_type,
+
+        return MonatomicTrajectory(
+            spin_angular_momentum=self.spins[0][index],
+            displacement=self.displacement,
+            parallel_velocity=self.parallel_velocity,
         )
 
 
-MonatomicTrajectory = Trajectory[MonatomicParticleState]
-DiatomicTrajectory = Trajectory[DiatomicParticleState]
-GenericTrajectory = Trajectory[BaseParticleState]
+@dataclass(frozen=True, kw_only=True)
+class DiatomicTrajectory(Trajectory):
+    nuclear_angular_momentum: GenericSpinList
+    rotational_angular_momentum: GenericSpinList
 
-T = TypeVar(
-    "T", bound=Trajectory[Any]
-)  # Use Any if you want to allow any BaseTrajectory
-# Remove TState from the class generic parameters
+    @staticmethod
+    @override
+    def from_states(
+        states: Iterable[MonatomicParticleState] | Iterable[DiatomicParticleState],
+    ) -> DiatomicTrajectory:
+        """Create a Trajectory from a list of ParticleStates."""
+        dia_states = [s for s in states if isinstance(s, DiatomicParticleState)]
+        assert dia_states is not None, "No DiatomicParticleState instances provided."
+        velocities = np.array([state.parallel_velocity for state in dia_states])
+        assert np.allclose(velocities, velocities[0]), (
+            "All states must have the same velocity."
+        )
+        displacements = [state.displacement for state in dia_states]
+        assert all(d == displacements[0] for d in displacements), (
+            "All states must have the same displacement."
+        )
+
+        return DiatomicTrajectory(
+            nuclear_angular_momentum=Spin.from_iter(
+                s.nuclear_angular_momentum for s in dia_states
+            ),
+            rotational_angular_momentum=Spin.from_iter(
+                s.rotational_angular_momentum for s in dia_states
+            ),
+            displacement=displacements[0],
+            parallel_velocity=velocities[0],
+        )
+
+    @property
+    @override
+    def spins(self) -> tuple[GenericSpinList, ...]:
+        return (self.nuclear_angular_momentum, self.rotational_angular_momentum)
+
+    @overload
+    def __getitem__(self: Trajectory, index: int) -> DiatomicParticleState: ...
+
+    @overload
+    def __getitem__(self, index: slice | int) -> DiatomicTrajectory: ...
+
+    @override
+    def __getitem__(
+        self, index: int | slice
+    ) -> DiatomicParticleState | DiatomicTrajectory:
+        if isinstance(index, int):
+            return DiatomicParticleState(
+                nuclear_angular_momentum=self.spins[0][index],
+                rotational_angular_momentum=self.spins[1][index],
+                displacement=self.displacement,
+                parallel_velocity=self.parallel_velocity,
+            )
+
+        return DiatomicTrajectory(
+            nuclear_angular_momentum=self.spins[0][index],
+            rotational_angular_momentum=self.spins[1][index],
+            displacement=self.displacement,
+            parallel_velocity=self.parallel_velocity,
+        )
 
 
 @dataclass(kw_only=True, frozen=True)
-class TrajectoryList[T: Trajectory[Any]](Sequence[T]):
+class TrajectoryList(ABC, Sequence[Trajectory]):
     """A list of trajectories."""
 
-    trajectories: tuple[T, ...]
+    displacements: ParticleDisplacementList
+    parallel_velocities: np.ndarray[Any, np.dtype[np.floating]]
 
-    def __post_init__(self) -> None:
-        if not self.trajectories:
-            msg = "TrajectoryList must contain at least one trajectory."
-            raise ValueError(msg)
-
-        # Check all trajectories have the same type
-        first_type = type(self.trajectories[0])
-        if not all(
-            isinstance(trajectory, first_type) for trajectory in self.trajectories
-        ):
-            msg = "All trajectories must be of the same type."
-            raise ValueError(msg)
-        # Check all trajectories have the same state_type
-        first_state_type = self.trajectories[0].state_type
-        if not all(traj.state_type is first_state_type for traj in self.trajectories):
-            msg = "All trajectories must be of the same state type."
-            raise ValueError(msg)
+    @abstractmethod
+    def __post_init__(self) -> None: ...
 
     @staticmethod
+    @abstractmethod
     def from_trajectories(
-        trajectories: Iterable[T],
-    ) -> TrajectoryList[T]:
-        """Create a TrajectoryList from a list of Trajectories."""
-        trajectories = tuple(trajectories)
-        assert trajectories is not None, "No trajectories provided."
-        return TrajectoryList(trajectories=trajectories)
+        trajectories: Iterable[MonatomicTrajectory] | Iterable[DiatomicTrajectory],
+    ) -> TrajectoryList: ...
 
     @override
     def __len__(self) -> int:
-        return len(self.trajectories)
-
-    @overload
-    def __getitem__(self, index: int) -> T: ...
-    @overload
-    def __getitem__(self, index: slice) -> TrajectoryList[T]: ...
+        return len(self.parallel_velocities)
 
     @override
-    def __getitem__(self, index: int | slice) -> T | TrajectoryList[T]:
+    @abstractmethod
+    def __iter__(self) -> Iterator[Trajectory]: ...
+
+
+@dataclass(frozen=True, kw_only=True)
+class MonatomicTrajectoryList(TrajectoryList):
+    """A list of monatomic trajectories."""
+
+    spin_angular_momentum: Spin[tuple[int, int, int]]
+
+    @override
+    def __post_init__(self) -> None:
+        if (
+            self.parallel_velocities.ndim != 1
+            or self.parallel_velocities.shape != self.displacements.shape
+            or self.parallel_velocities.size != self.spin_angular_momentum.shape[0]
+        ):
+            msg = "Spins must be a 2D array, parallel velocities and displacements must be 1D arrays, and their shapes must match."
+            raise ValueError(msg)
+
+    @staticmethod
+    @override
+    def from_trajectories(
+        trajectories: Iterable[MonatomicTrajectory] | Iterable[DiatomicTrajectory],
+    ) -> MonatomicTrajectoryList:
+        """Create a MonatomicTrajectoryList from a list of MonatomicTrajectories."""
+        mono_trajectories = [
+            trajectory
+            for trajectory in trajectories
+            if isinstance(trajectory, MonatomicTrajectory)
+        ]
+        assert mono_trajectories, "No MonatomicTrajectory instances provided."
+
+        spins = Spin.from_iter(t.spin_angular_momentum for t in mono_trajectories)
+        displacements = ParticleDisplacementList.from_displacements(
+            t.displacement for t in mono_trajectories
+        )
+        parallel_velocities = np.array([t.parallel_velocity for t in mono_trajectories])
+        return MonatomicTrajectoryList(
+            spin_angular_momentum=spins,
+            displacements=displacements,
+            parallel_velocities=parallel_velocities,
+        )
+
+    @overload
+    def __getitem__(self, index: int) -> MonatomicTrajectory: ...
+    @overload
+    def __getitem__(self, index: slice) -> MonatomicTrajectoryList: ...
+
+    @override
+    def __getitem__(
+        self, index: int | slice
+    ) -> MonatomicTrajectory | MonatomicTrajectoryList:
         if isinstance(index, slice):
-            return TrajectoryList(trajectories=self.trajectories[index])
-        return self.trajectories[index]
+            return MonatomicTrajectoryList(
+                spin_angular_momentum=self.spin_angular_momentum[index],
+                displacements=self.displacements[index],
+                parallel_velocities=self.parallel_velocities[index],
+            )
+        return MonatomicTrajectory(
+            spin_angular_momentum=self.spin_angular_momentum[index],
+            displacement=self.displacements[index],
+            parallel_velocity=self.parallel_velocities[index],
+        )
 
     @override
-    def __iter__(self) -> Iterator[T]:
-        return iter(self.trajectories)
+    def __iter__(self) -> Iterator[MonatomicTrajectory]:
+        for i in range(len(self)):
+            yield MonatomicTrajectory(
+                spin_angular_momentum=self.spin_angular_momentum[i],
+                displacement=self.displacements[i],
+                parallel_velocity=self.parallel_velocities[i],
+            )
 
 
-MonatomicTrajectoryList = TrajectoryList[MonatomicTrajectory]
-DiatomicTrajectoryList = TrajectoryList[DiatomicTrajectory]
-GenericTrajectoryList = TrajectoryList[GenericTrajectory]
+@dataclass(frozen=True, kw_only=True)
+class DiatomicTrajectoryList(TrajectoryList):
+    """A list of diatomic trajectories."""
+
+    nuclear_angular_momentum: Spin[tuple[int, int, int]]
+    rotational_angular_momentum: Spin[tuple[int, int, int]]
+
+    @override
+    def __post_init__(self) -> None:
+        if (
+            self.parallel_velocities.ndim != 1
+            or self.parallel_velocities.shape != self.displacements.shape
+            or self.parallel_velocities.size != self.nuclear_angular_momentum.shape[0]
+            or self.parallel_velocities.size
+            != self.rotational_angular_momentum.shape[0]
+        ):
+            msg = "Spins must be a 2D array, parallel velocities and displacements must be 1D arrays, and their shapes must match."
+            raise ValueError(msg)
+
+    @staticmethod
+    @override
+    def from_trajectories(
+        trajectories: Iterable[MonatomicTrajectory] | Iterable[DiatomicTrajectory],
+    ) -> DiatomicTrajectoryList:
+        """Create a DiatomicTrajectoryList from a list of DiatomicTrajectories."""
+        dia_trajectories = [
+            trajectory
+            for trajectory in trajectories
+            if isinstance(trajectory, DiatomicTrajectory)
+        ]
+        assert dia_trajectories, "No DiatomicTrajectory instances provided."
+
+        nuclear_spins = Spin.from_iter(
+            t.nuclear_angular_momentum for t in dia_trajectories
+        )
+        rotational_spins = Spin.from_iter(
+            t.rotational_angular_momentum for t in dia_trajectories
+        )
+        displacements = ParticleDisplacementList.from_displacements(
+            t.displacement for t in dia_trajectories
+        )
+        parallel_velocities = np.array([t.parallel_velocity for t in dia_trajectories])
+        return DiatomicTrajectoryList(
+            nuclear_angular_momentum=nuclear_spins,
+            rotational_angular_momentum=rotational_spins,
+            displacements=displacements,
+            parallel_velocities=parallel_velocities,
+        )
+
+    @overload
+    def __getitem__(self, index: int) -> DiatomicTrajectory: ...
+    @overload
+    def __getitem__(self, index: slice) -> DiatomicTrajectoryList: ...
+
+    @override
+    def __getitem__(
+        self, index: int | slice
+    ) -> DiatomicTrajectory | DiatomicTrajectoryList:
+        if isinstance(index, slice):
+            return DiatomicTrajectoryList(
+                nuclear_angular_momentum=self.nuclear_angular_momentum[index],
+                rotational_angular_momentum=self.rotational_angular_momentum[index],
+                displacements=self.displacements[index],
+                parallel_velocities=self.parallel_velocities[index],
+            )
+        return DiatomicTrajectory(
+            nuclear_angular_momentum=self.nuclear_angular_momentum[index],
+            rotational_angular_momentum=self.rotational_angular_momentum[index],
+            displacement=self.displacements[index],
+            parallel_velocity=self.parallel_velocities[index],
+        )
+
+    @override
+    def __iter__(self) -> Iterator[DiatomicTrajectory]:
+        for i in range(len(self)):
+            yield DiatomicTrajectory(
+                nuclear_angular_momentum=self.nuclear_angular_momentum[i],
+                rotational_angular_momentum=self.rotational_angular_momentum[i],
+                displacement=self.displacements[i],
+                parallel_velocity=self.parallel_velocities[i],
+            )
