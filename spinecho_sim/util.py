@@ -146,7 +146,7 @@ def _permutation_matrix(n_stars: int, perm: tuple[int, ...]) -> sp.csr_matrix:
 
 def csr_add(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
     """Typed CSR + CSR → CSR."""
-    return (a + b).tocsr()  # type: ignore
+    return (a + b).tocsr()  # type: ignore[operator]
 
 
 def symmetriser(n_stars: int) -> sp.csr_matrix:
