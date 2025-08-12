@@ -149,7 +149,7 @@ def csr_add(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
     return (a + b).tocsr()  # type: ignore[operator]
 
 
-def symmetriser(n_stars: int) -> sp.csr_matrix:
+def symmetrize(n_stars: int) -> sp.csr_matrix:
     """(2^N x 2^N) projector onto the totally-symmetric subspace."""
     projector = sp.csr_matrix((2**n_stars, 2**n_stars), dtype=np.float64)
     for perm in permutations(range(n_stars)):
