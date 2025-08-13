@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 
-from spinecho_sim.molecule import (
+from spinecho_sim.molecule import diatomic_hamiltonian_dicke
+from spinecho_sim.molecule.hamiltonian_dicke import (
     collective_ops_sparse,
-    ramsey_hamiltonian_sparse,
     single_spin_ops_sparse,
 )
 from spinecho_sim.util import plot_complex_heatmap, to_array
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     # Example usage:
     H = 300
     a, b, c, d = 4.258 * H, 0.6717 * H, 113.8, 57.68
-    full_result_sparse = ramsey_hamiltonian_sparse(
+    full_result_sparse = diatomic_hamiltonian_dicke(
         1, 1, coefficients=(a, b, c, d), b_vec=(0.2, 0.2, 1.0)
     )
     full_result_array = to_array(full_result_sparse)
