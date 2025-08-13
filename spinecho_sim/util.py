@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Callable
 from functools import reduce, wraps
 from itertools import permutations, starmap
 from math import factorial
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, cast
 
 import numpy as np
+import scipy.integrate  # pyright: ignore[reportMissingTypeStubs]
 import scipy.sparse as sp  # type: ignore[import-untyped]
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
+from numpy.typing import NDArray
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure, SubFigure
 
@@ -145,8 +146,46 @@ def _permutation_matrix(n_stars: int, perm: tuple[int, ...]) -> sp.csr_matrix:
 
 
 def csr_add(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
-    """Typed CSR + CSR → CSR."""
+    """Typed sp.csr_matrix + sp.csr_matrix → sp.csr_matrix."""
     return (a + b).tocsr()  # type: ignore[operator]
+
+
+def csr_subtract(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
+    """Typed sp.csr_matrix - sp.csr_matrix → sp.csr_matrix."""
+    return (a - b).tocsr()  # type: ignore[operator]
+
+
+def csr_scale(a: sp.csr_matrix, scale: complex) -> sp.csr_matrix:
+    """Typed sp.csr_matrix * float → sp.csr_matrix."""
+    out = a.copy()  # pyright: ignore[reportUnknownVariableType]
+    out.astype(np.complex128).data *= scale
+    return out  # pyright: ignore[reportUnknownVariableType]
+
+
+def csr_hermitian(a: sp.csr_matrix) -> sp.csr_matrix:
+    """Typed sp.csr_matrix† → sp.csr_matrix."""
+    return a.transpose().conj().tocsr()  # type: ignore[operator]
+
+
+def csr_diags(
+    diagonals: np.ndarray | list[np.ndarray] | list[float],
+    offsets: int = 0,
+    shape: tuple[int, int] | None = None,
+    dtype: np.dtype | None = None,
+) -> sp.csr_matrix:
+    """Typed version of sp.diags that guarantees a csr_matrix."""
+    m = sp.diags(diagonals, offsets, shape=shape, format="csr", dtype=dtype)
+    return cast("sp.csr_matrix", m)
+
+
+def csr_eye(n: float, dtype: type = complex) -> sp.csr_matrix:
+    """Typed identity matrix in sp.csr_matrix format."""
+    return cast("sp.csr_matrix", sp.eye(n, dtype=dtype, format="csr"))
+
+
+def csr_kron(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
+    """Typed Kronecker product returning sp.csr_matrix."""
+    return cast("sp.csr_matrix", sp.kron(a, b, format="csr"))
 
 
 def symmetrize(n_stars: int) -> sp.csr_matrix:
@@ -215,3 +254,58 @@ def plot_complex_heatmap(arr: np.ndarray) -> tuple[Figure, Axes]:
 def sparse_matmul(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
     """Matrix multiplication for two sparse matrices, returning a sparse matrix."""
     return a @ b  # type: ignore[return-value]
+
+
+def sparse_apply(a: sp.csr_matrix, b: np.ndarray) -> np.ndarray:
+    """Matrix multiplication for a sparse matrix and a dense vector, returning a dense vector."""
+    return a @ b  # type: ignore[return-value]
+
+
+RHS = Callable[
+    [float, NDArray[np.float64 | np.complex128]], NDArray[np.float64 | np.complex128]
+]
+
+
+class SolveIVPResult(Protocol):
+    """Result of an ODE solve."""
+
+    # the attributes you read in your code
+    t: NDArray[np.float64]
+    y: NDArray[np.float64 | np.complex128]
+    status: int
+    message: str
+    success: bool
+
+
+class SolveIVPOptions(TypedDict, total=False):
+    """Options for the ODE solver."""
+
+    atol: float
+    rtol: float
+    max_step: float
+    vectorized: bool
+
+
+def solve_ivp_typed(  # noqa: PLR0913
+    fun: RHS,
+    t_span: tuple[float, float],
+    y0: NDArray[np.float64 | np.complex128],
+    *,
+    t_eval: NDArray[np.float64] | None = None,
+    method: Literal["RK45", "RK23", "DOP853", "Radau", "BDF", "LSODA"] = "RK45",
+    vectorized: bool = False,
+    rtol: float = 1e-3,
+    **kwargs: SolveIVPOptions,
+) -> SolveIVPResult:
+    """Typed wrapper around scipy.integrate.solve_ivp."""
+    res = scipy.integrate.solve_ivp(  # pyright: ignore[reportUnknownVariableType]
+        fun,
+        t_span,
+        y0,
+        t_eval=t_eval,
+        method=method,
+        vectorized=vectorized,
+        rtol=rtol,
+        **kwargs,  # pyright: ignore[reportArgumentType]
+    )
+    return cast("SolveIVPResult", res)

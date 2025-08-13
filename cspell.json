@@ -38,6 +38,8 @@
         "spinor",
         "toarray",
         "tocsr",
+        "Radau",
+        "LSODA",
     ],
     "userWords": [
         "Larmor",

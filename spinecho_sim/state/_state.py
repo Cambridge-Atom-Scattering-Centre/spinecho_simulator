@@ -24,7 +24,6 @@ class BaseParticleState(ABC):
     @abstractmethod
     def spins(self) -> tuple[GenericSpin, ...]: ...
 
-    # ------ shared helper: expand into single-spin sub-states -------------
     @abstractmethod
     def as_coherent(self) -> Sequence[CoherentParticleState]: ...
 
