@@ -55,7 +55,7 @@ def collective_ops_sparse(
     return operators_i, operators_j
 
 
-def ramsey_hamiltonian_sparse(
+def diatomic_hamiltonian_dicke(
     i: float,
     j: float,
     coefficients: tuple[float, float, float, float],

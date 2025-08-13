@@ -7,7 +7,7 @@ import numpy as np
 
 from spinecho_sim.molecule.hamiltonian_dicke import (
     collective_ops_sparse,
-    ramsey_hamiltonian_sparse,
+    diatomic_hamiltonian_dicke,
 )
 from spinecho_sim.util import SolveIVPResult, solve_ivp_typed, sparse_apply, to_array
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     # Create Hamiltonian
     H = 300
     a, b, c, d = 4.258 * H, 0.6717 * H, 113.8, 57.68
-    hamiltonian = ramsey_hamiltonian_sparse(
+    hamiltonian = diatomic_hamiltonian_dicke(
         1, 1, coefficients=(a, b, c, d), b_vec=(0.2, 0.2, 1.0)
     )
 

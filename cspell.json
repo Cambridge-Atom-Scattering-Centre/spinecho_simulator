@@ -40,6 +40,12 @@
         "tocsr",
         "Radau",
         "LSODA",
+        "xticks",
+        "yticks",
+        "xticklabels",
+        "yticklabels",
+        "vmin",
+        "vmax"
     ],
     "userWords": [
         "Larmor",

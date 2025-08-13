@@ -41,10 +41,11 @@ def _majorana_polynomial_components(
     return state / np.linalg.norm(state)
 
 
-def _inner_prod(
+def bargmann_inner_product(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
     b: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.complexfloating:
+    """Compute the inner product of two polynomials in z."""
     two_j = len(a) - 1
     k = np.arange(two_j + 1)
     w = 1 / np.asarray(comb(two_j, k), dtype=np.complex128)
@@ -59,7 +60,7 @@ def _polynomial_z_derivative(
     return np.concatenate((da, np.zeros(1, dtype=np.complex128)))
 
 
-def _z_mul(
+def _polynomial_z_multiplication(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]], shift: int = 1
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     return np.concatenate((np.zeros(shift, dtype=np.complex128), a[:-shift]))
@@ -83,8 +84,10 @@ def _s_plus(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     two_j = len(a) - 1
-    term1 = -_z_mul(_polynomial_z_derivative(a), shift=2)  # -ħ z^2 dP/dz
-    term2 = two_j * _z_mul(a, shift=1)  # +2ħj z P
+    term1 = -_polynomial_z_multiplication(
+        _polynomial_z_derivative(a), shift=2
+    )  # -ħ z^2 dP/dz
+    term2 = two_j * _polynomial_z_multiplication(a, shift=1)  # +2ħj z P
     return term1 + term2
 
 
@@ -92,7 +95,7 @@ def _s_z(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     j = (len(a) - 1) / 2
-    term = _z_mul(_polynomial_z_derivative(a), shift=1)  # z dP/dz
+    term = _polynomial_z_multiplication(_polynomial_z_derivative(a), shift=1)  # z dP/dz
     return term - j * a
 
 
@@ -298,11 +301,11 @@ def _get_bargmann_expectation(
     a_plus = _s_plus(polynomial_coefficients)
     a_z = _s_z(polynomial_coefficients)
 
-    sx = 0.5 * _inner_prod(polynomial_coefficients, a_plus + a_minus)
-    sy = -0.5j * _inner_prod(polynomial_coefficients, a_plus - a_minus)
+    sx = 0.5 * bargmann_inner_product(polynomial_coefficients, a_plus + a_minus)
+    sy = -0.5j * bargmann_inner_product(polynomial_coefficients, a_plus - a_minus)
     sx *= -1  # Aligns with convention of other code
     sy *= -1
-    sz = _inner_prod(polynomial_coefficients, a_z)
+    sz = bargmann_inner_product(polynomial_coefficients, a_z)
     return float(sx.real), float(sy.real), float(sz.real)
 
 

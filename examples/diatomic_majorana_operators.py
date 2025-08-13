@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import matplotlib.pyplot as plt
 
-from spinecho_sim.molecule import (
-    diatomic_hamiltonian_majorana,
+from spinecho_sim.molecule import diatomic_hamiltonian_majorana
+from spinecho_sim.molecule.hamiltonian_majorana import (
     quadrupole_block_majorana,
     spin_rotational_block_majorana,
     zeeman_hamiltonian_majorana,
