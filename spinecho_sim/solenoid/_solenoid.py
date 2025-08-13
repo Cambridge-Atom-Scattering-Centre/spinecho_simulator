@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, override
 
 import numpy as np
-from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 from tqdm import tqdm
 
 from spinecho_sim.state import (
@@ -28,7 +27,7 @@ from spinecho_sim.state._trajectory import (
     MonatomicTrajectory,
     MonatomicTrajectoryList,
 )
-from spinecho_sim.util import timed
+from spinecho_sim.util import solve_ivp_typed, timed
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -227,9 +226,7 @@ class MonatomicSolenoid(Solenoid):
 
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
-        gyromagnetic_ratio = (
-            initial_state.gyromagnetic_ratio
-        )  # gyromagnetic ratio for 3He (rad s^-1 T^-1)
+        gyromagnetic_ratio = initial_state.gyromagnetic_ratio
         effective_ratio = gyromagnetic_ratio / initial_state.parallel_velocity
 
         def _d_angles_dx(
@@ -260,15 +257,15 @@ class MonatomicSolenoid(Solenoid):
             ]
         )
 
-        sol = solve_ivp(  # type: ignore[return-value]
-            fun=_d_angles_dx,
+        sol = solve_ivp_typed(
+            fun=_d_angles_dx,  # pyright: ignore[reportArgumentType]
             t_span=(z_points[0], z_points[-1]),
             y0=y0,
             t_eval=z_points,
             vectorized=False,
             rtol=1e-8,
         )
-        return np.array(sol.y)[0], np.array(sol.y)[1]  # type: ignore[return-value]
+        return np.array(sol.y)[0], np.array(sol.y)[1]
 
     @override
     def simulate_trajectory(

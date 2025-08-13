@@ -51,7 +51,7 @@ def _inner_prod(
     return np.vdot(a, b * w)  # vdot = conjugate(a)·b
 
 
-def _deriv(
+def _polynomial_z_derivative(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     k = np.arange(len(a) - 1)
@@ -76,14 +76,14 @@ def dicke_to_poly(
 def _s_minus(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
-    return _deriv(a)  # Eq. (1) rightmost
+    return _polynomial_z_derivative(a)  # Eq. (1) rightmost
 
 
 def _s_plus(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     two_j = len(a) - 1
-    term1 = -_z_mul(_deriv(a), shift=2)  # -ħ z^2 dP/dz
+    term1 = -_z_mul(_polynomial_z_derivative(a), shift=2)  # -ħ z^2 dP/dz
     term2 = two_j * _z_mul(a, shift=1)  # +2ħj z P
     return term1 + term2
 
@@ -92,7 +92,7 @@ def _s_z(
     a: np.ndarray[tuple[int], np.dtype[np.complex128]],
 ) -> np.ndarray[tuple[int], np.dtype[np.complex128]]:
     j = (len(a) - 1) / 2
-    term = _z_mul(_deriv(a), shift=1)  # z dP/dz
+    term = _z_mul(_polynomial_z_derivative(a), shift=1)  # z dP/dz
     return term - j * a
 
 
