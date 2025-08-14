@@ -9,16 +9,16 @@ import numpy as np
 from tqdm import tqdm
 
 from spinecho_sim.state import (
-    DiatomicParticleState,
-    DiatomicTrajectory,
-    DiatomicTrajectoryList,
     EmptySpinListList,
     MonatomicParticleState,
     MonatomicTrajectory,
     MonatomicTrajectoryList,
     ParticleDisplacement,
     ParticleDisplacementList,
+    ParticleState,
     Spin,
+    Trajectory,
+    TrajectoryList,
 )
 from spinecho_sim.state._spin import EmptySpinList
 from spinecho_sim.state._state import (
@@ -30,15 +30,15 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from spinecho_sim.state._state import (
-        CoherentDiatomicParticleState,
+        CoherentParticleState,
     )
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoidTrajectory:
+class SolenoidTrajectory:
     """Represents the trajectory of a diatomic particle in a solenoid."""
 
-    trajectory: DiatomicTrajectory
+    trajectory: Trajectory
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
@@ -58,7 +58,7 @@ class DiatomicSolenoidTrajectory:
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidTrajectory(DiatomicSolenoidTrajectory):
+class MonatomicSolenoidTrajectory(SolenoidTrajectory):
     """Represents the trajectory of a monatomic particle in a solenoid."""
 
     trajectory: MonatomicTrajectory
@@ -71,10 +71,10 @@ class MonatomicSolenoidTrajectory(DiatomicSolenoidTrajectory):
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoidSimulationResult:
+class SolenoidSimulationResult:
     """Represents the result of a solenoid simulation."""
 
-    trajectories: DiatomicTrajectoryList
+    trajectories: TrajectoryList
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
@@ -92,7 +92,7 @@ class DiatomicSolenoidSimulationResult:
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidSimulationResult(DiatomicSolenoidSimulationResult):
+class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
     trajectories: MonatomicTrajectoryList
 
     @property
@@ -102,28 +102,28 @@ class MonatomicSolenoidSimulationResult(DiatomicSolenoidSimulationResult):
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoid:
+class Solenoid:
     """Dataclass representing a solenoid with its parameters."""
 
     length: float
     field: Callable[[float], np.ndarray[Any, np.dtype[np.floating]]]
 
     @classmethod
-    def with_uniform_z(cls, length: float, strength: float) -> DiatomicSolenoid:
+    def with_uniform_z(cls, length: float, strength: float) -> Solenoid:
         """Build a solenoid with a uniform field along the z-axis."""
         return cls(length=length, field=lambda _z: np.array([0.0, 0.0, strength]))
 
     @classmethod
     def with_nonuniform_z(
         cls, length: float, strength: Callable[[float], float]
-    ) -> DiatomicSolenoid:
+    ) -> Solenoid:
         """Build a solenoid with a non-uniform field along the z-axis."""
         return cls(length=length, field=lambda z: np.array([0.0, 0.0, strength(z)]))
 
     @classmethod
     def from_experimental_parameters(
         cls, *, length: float, magnetic_constant: float, current: float
-    ) -> DiatomicSolenoid:
+    ) -> Solenoid:
         """Build a solenoid from an experimental magnetic constant and current."""
         b_z = np.pi * magnetic_constant * current / (2 * length)
         return cls.with_nonuniform_z(
@@ -133,7 +133,7 @@ class DiatomicSolenoid:
 
     def _simulate_coherent_trajectory(
         self,
-        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
+        initial_state: CoherentParticleState,
         n_steps: int = 100,
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
@@ -144,7 +144,7 @@ class DiatomicSolenoid:
 
     def simulate_trajectory(
         self,
-        initial_state: MonatomicParticleState | DiatomicParticleState,
+        initial_state: ParticleState,
         n_steps: int = 100,
     ) -> MonatomicSolenoidTrajectory:
         msg = "Diatomic solenoid simulation not implemented."
@@ -153,7 +153,7 @@ class DiatomicSolenoid:
     @timed
     def simulate_trajectories(
         self,
-        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
+        initial_states: list[ParticleState],
         n_steps: int = 100,
     ) -> MonatomicSolenoidSimulationResult:
         msg = "Diatomic solenoid simulation not implemented."
@@ -163,7 +163,7 @@ class DiatomicSolenoid:
 def _get_field(
     z: float,
     displacement: ParticleDisplacement,
-    solenoid: DiatomicSolenoid,
+    solenoid: Solenoid,
     dz: float = 1e-5,
 ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
     if displacement.r == 0:
@@ -189,11 +189,11 @@ def _get_field(
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoid(DiatomicSolenoid):
+class MonatomicSolenoid(Solenoid):
     @override
     def _simulate_coherent_trajectory(
         self,
-        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
+        initial_state: CoherentParticleState,
         n_steps: int = 100,
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
@@ -249,7 +249,7 @@ class MonatomicSolenoid(DiatomicSolenoid):
     @override
     def simulate_trajectory(
         self,
-        initial_state: MonatomicParticleState | DiatomicParticleState,
+        initial_state: ParticleState,
         n_steps: int = 100,
     ) -> MonatomicSolenoidTrajectory:
         """Run the spin echo simulation using configured parameters."""
@@ -279,7 +279,7 @@ class MonatomicSolenoid(DiatomicSolenoid):
     @override
     def simulate_trajectories(
         self,
-        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
+        initial_states: list[ParticleState],
         n_steps: int = 100,
     ) -> MonatomicSolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""

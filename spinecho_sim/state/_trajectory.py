@@ -7,9 +7,9 @@ from typing import TYPE_CHECKING, Any, overload, override
 import numpy as np
 
 from spinecho_sim.state import (
-    DiatomicParticleState,
     MonatomicParticleState,
     ParticleDisplacementList,
+    ParticleState,
     Spin,
 )
 from spinecho_sim.state._spin import EmptySpinList, EmptySpinListList
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, kw_only=True)
-class DiatomicTrajectory(Sequence[Any]):
+class Trajectory(Sequence[Any]):
     """A trajectory of a diatomic particle through the simulation."""
 
     _spin_angular_momentum: GenericSpinList
@@ -33,8 +33,8 @@ class DiatomicTrajectory(Sequence[Any]):
 
     @staticmethod
     def from_states(
-        states: Iterable[DiatomicParticleState],
-    ) -> DiatomicTrajectory:
+        states: Iterable[ParticleState],
+    ) -> Trajectory:
         """Create a Trajectory from a list of ParticleStates."""
         velocities = np.array([state.parallel_velocity for state in states])
         assert np.allclose(velocities, velocities[0]), (
@@ -45,7 +45,7 @@ class DiatomicTrajectory(Sequence[Any]):
             "All states must have the same displacement."
         )
 
-        return DiatomicTrajectory(
+        return Trajectory(
             _spin_angular_momentum=Spin.from_iter(s.spin for s in states),
             _rotational_angular_momentum=Spin.from_iter(
                 s.rotational_angular_momentum for s in states
@@ -67,24 +67,22 @@ class DiatomicTrajectory(Sequence[Any]):
         return self._rotational_angular_momentum
 
     @overload
-    def __getitem__(self: DiatomicTrajectory, index: int) -> DiatomicParticleState: ...
+    def __getitem__(self: Trajectory, index: int) -> ParticleState: ...
 
     @overload
-    def __getitem__(self, index: slice | int) -> DiatomicTrajectory: ...
+    def __getitem__(self, index: slice | int) -> Trajectory: ...
 
     @override
-    def __getitem__(
-        self, index: int | slice
-    ) -> DiatomicParticleState | DiatomicTrajectory:
+    def __getitem__(self, index: int | slice) -> ParticleState | Trajectory:
         if isinstance(index, int):
-            return DiatomicParticleState(
+            return ParticleState(
                 _spin_angular_momentum=self.spin[index],
                 _rotational_angular_momentum=self.rotational_angular_momentum[index],
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
             )
 
-        return DiatomicTrajectory(
+        return Trajectory(
             _spin_angular_momentum=self.spin[index],
             _rotational_angular_momentum=self.rotational_angular_momentum[index],
             displacement=self.displacement,
@@ -93,7 +91,7 @@ class DiatomicTrajectory(Sequence[Any]):
 
 
 @dataclass(frozen=True, kw_only=True)
-class MonatomicTrajectory(DiatomicTrajectory):
+class MonatomicTrajectory(Trajectory):
     _rotational_angular_momentum: EmptySpinList = field(
         init=False
     )  # Automatically set later
@@ -109,7 +107,7 @@ class MonatomicTrajectory(DiatomicTrajectory):
     @staticmethod
     @override
     def from_states(
-        states: Iterable[MonatomicParticleState] | Iterable[DiatomicParticleState],
+        states: Iterable[MonatomicParticleState] | Iterable[ParticleState],
     ) -> MonatomicTrajectory:
         """Create a Trajectory from a list of ParticleStates."""
         mono_states = [s for s in states if isinstance(s, MonatomicParticleState)]
@@ -162,7 +160,7 @@ class MonatomicTrajectory(DiatomicTrajectory):
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
+class TrajectoryList(Sequence[Trajectory]):
     """A list of diatomic trajectories."""
 
     _spin_angular_momentum: Spin[tuple[int, int, int]]
@@ -191,8 +189,8 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
 
     @staticmethod
     def from_trajectories(
-        trajectories: Iterable[DiatomicTrajectory],
-    ) -> DiatomicTrajectoryList:
+        trajectories: Iterable[Trajectory],
+    ) -> TrajectoryList:
         """Create a DiatomicTrajectoryList from a list of DiatomicTrajectories."""
         nuclear_spins = Spin.from_iter(t.spin for t in trajectories)
         rotational_spins = Spin.from_iter(
@@ -202,7 +200,7 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
             t.displacement for t in trajectories
         )
         parallel_velocities = np.array([t.parallel_velocity for t in trajectories])
-        return DiatomicTrajectoryList(
+        return TrajectoryList(
             _spin_angular_momentum=nuclear_spins,
             _rotational_angular_momentum=rotational_spins,
             displacements=displacements,
@@ -214,22 +212,20 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
         return len(self.parallel_velocities)
 
     @overload
-    def __getitem__(self, index: int) -> DiatomicTrajectory: ...
+    def __getitem__(self, index: int) -> Trajectory: ...
     @overload
-    def __getitem__(self, index: slice) -> DiatomicTrajectoryList: ...
+    def __getitem__(self, index: slice) -> TrajectoryList: ...
 
     @override
-    def __getitem__(
-        self, index: int | slice
-    ) -> DiatomicTrajectory | DiatomicTrajectoryList:
+    def __getitem__(self, index: int | slice) -> Trajectory | TrajectoryList:
         if isinstance(index, slice):
-            return DiatomicTrajectoryList(
+            return TrajectoryList(
                 _spin_angular_momentum=self.spin[index],
                 _rotational_angular_momentum=self.rotational_angular_momentum[index],
                 displacements=self.displacements[index],
                 parallel_velocities=self.parallel_velocities[index],
             )
-        return DiatomicTrajectory(
+        return Trajectory(
             _spin_angular_momentum=self.spin[index],
             _rotational_angular_momentum=self.rotational_angular_momentum[index],
             displacement=self.displacements[index],
@@ -237,9 +233,9 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
         )
 
     @override
-    def __iter__(self) -> Iterator[DiatomicTrajectory]:
+    def __iter__(self) -> Iterator[Trajectory]:
         for i in range(len(self)):
-            yield DiatomicTrajectory(
+            yield Trajectory(
                 _spin_angular_momentum=self.spin[i],
                 _rotational_angular_momentum=self.rotational_angular_momentum[i],
                 displacement=self.displacements[i],
@@ -248,7 +244,7 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
 
 
 @dataclass(frozen=True, kw_only=True)
-class MonatomicTrajectoryList(DiatomicTrajectoryList):
+class MonatomicTrajectoryList(TrajectoryList):
     """A list of monatomic trajectories."""
 
     _rotational_angular_momentum: EmptySpinListList = field(
@@ -278,7 +274,7 @@ class MonatomicTrajectoryList(DiatomicTrajectoryList):
     @staticmethod
     @override
     def from_trajectories(
-        trajectories: Iterable[DiatomicTrajectory],
+        trajectories: Iterable[Trajectory],
     ) -> MonatomicTrajectoryList:
         """Create a MonatomicTrajectoryList from a list of MonatomicTrajectories."""
         mono_trajectories = [
