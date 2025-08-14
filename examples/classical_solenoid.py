@@ -14,7 +14,6 @@ from spinecho_sim.solenoid import (
 )
 from spinecho_sim.state import (
     CoherentSpin,
-    EmptySpin,
     sample_gaussian_velocities,
     sample_uniform_displacement,
 )
@@ -27,7 +26,6 @@ if __name__ == "__main__":
             _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
                 n_stars=1
             ),
-            _rotational_angular_momentum=EmptySpin(),
             displacement=displacement,
             parallel_velocity=velocity,
             gyromagnetic_ratio=-2.04e8,

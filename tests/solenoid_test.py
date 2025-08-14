@@ -14,8 +14,6 @@ from spinecho_sim.solenoid import (
 )
 from spinecho_sim.state import (
     CoherentSpin,
-    EmptySpin,
-    EmptySpinList,
     MonatomicParticleState,
     MonatomicTrajectory,
     ParticleDisplacement,
@@ -86,7 +84,6 @@ def simulate_trajectory_cartesian(
     return MonatomicSolenoidTrajectory(
         trajectory=MonatomicTrajectory(
             _spin_angular_momentum=spins,
-            _rotational_angular_momentum=EmptySpinList(spins.shape),
             displacement=initial_state.displacement,
             parallel_velocity=initial_state.parallel_velocity,
         ),
@@ -99,7 +96,6 @@ def test_simulate_trajectory() -> None:
 
     initial_state = MonatomicParticleState(
         _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(),
-        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -131,7 +127,6 @@ def test_simulate_trajectories() -> None:
         _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=2
         ),
-        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -165,7 +160,6 @@ def test_simulate_trajectory_high_spin() -> None:
         _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=2
         ),
-        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -194,7 +188,6 @@ def test_simulate_trajectory_high_spin() -> None:
         _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=1
         ),
-        _rotational_angular_momentum=EmptySpin(),
         displacement=initial_state.displacement,
         parallel_velocity=initial_state.parallel_velocity,
     )

@@ -7,7 +7,6 @@ import pytest
 
 from spinecho_sim.state import (
     CoherentSpin,
-    EmptySpinList,
     MonatomicTrajectory,
     MonatomicTrajectoryList,
     ParticleDisplacement,
@@ -158,7 +157,6 @@ def test_trajectory_list() -> None:
     ]
     trajectory = MonatomicTrajectory(
         _spin_angular_momentum=Spin.from_iter(spins),
-        _rotational_angular_momentum=EmptySpinList(Spin.from_iter(spins).shape),
         displacement=ParticleDisplacement(r=0, theta=0),
         parallel_velocity=10.0,
     )

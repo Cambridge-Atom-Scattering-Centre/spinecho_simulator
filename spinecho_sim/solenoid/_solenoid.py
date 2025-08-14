@@ -12,6 +12,7 @@ from spinecho_sim.state import (
     DiatomicParticleState,
     DiatomicTrajectory,
     DiatomicTrajectoryList,
+    EmptySpinListList,
     MonatomicParticleState,
     MonatomicTrajectory,
     MonatomicTrajectoryList,
@@ -97,7 +98,7 @@ class MonatomicSolenoidSimulationResult(DiatomicSolenoidSimulationResult):
     @property
     @override
     def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
-        return self.trajectories.rotational_angular_momentum
+        return EmptySpinListList(self.spin.shape)
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -268,7 +269,6 @@ class MonatomicSolenoid(DiatomicSolenoid):
         return MonatomicSolenoidTrajectory(
             trajectory=MonatomicTrajectory(
                 _spin_angular_momentum=spins,
-                _rotational_angular_momentum=EmptySpinList(spins.shape),
                 displacement=initial_state.displacement,
                 parallel_velocity=initial_state.parallel_velocity,
             ),
