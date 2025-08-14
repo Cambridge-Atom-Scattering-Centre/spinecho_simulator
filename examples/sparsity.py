@@ -39,7 +39,7 @@ class Result:
 
     i: float
     j: float
-    ramsey: tuple[int, int, float]
+    dicke: tuple[int, int, float]
     majorana: tuple[int, int, float]
 
 
@@ -56,11 +56,11 @@ def compare_sparsity(
         for j in j_values:
             print(f"Computing for I={i}, J={j}...")
 
-            # Ramsey Hamiltonian
-            ramsey_hamiltonian = diatomic_hamiltonian_dicke(
+            # Dicke Hamiltonian
+            dicke_hamiltonian = diatomic_hamiltonian_dicke(
                 i=i, j=j, coefficients=coefficients, b_vec=b_vec
             )
-            ramsey_metrics = compute_sparsity(ramsey_hamiltonian)
+            dicke_metrics = compute_sparsity(dicke_hamiltonian)
 
             # Majorana Hamiltonian
             majorana_hamiltonian = diatomic_hamiltonian_majorana(
@@ -70,7 +70,7 @@ def compare_sparsity(
 
             # Store results in the dataclass
             results.append(
-                Result(i=i, j=j, ramsey=ramsey_metrics, majorana=majorana_metrics)
+                Result(i=i, j=j, dicke=dicke_metrics, majorana=majorana_metrics)
             )
 
     return results
@@ -90,35 +90,31 @@ def generate_heatmaps(
         i_idx = i_values.index(result.i)
         j_idx = j_values.index(result.j)
 
-        nnz_diff[i_idx, j_idx] = result.majorana[0] - result.ramsey[0]
-        size_diff[i_idx, j_idx] = result.majorana[1] - result.ramsey[1]
-        sparsity_diff[i_idx, j_idx] = result.majorana[2] - result.ramsey[2]
+        nnz_diff[i_idx, j_idx] = result.majorana[0] - result.dicke[0]
+        size_diff[i_idx, j_idx] = result.majorana[1] - result.dicke[1]
+        sparsity_diff[i_idx, j_idx] = result.majorana[2] - result.dicke[2]
 
     # Plot heatmaps (unchanged)
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
+    for ax in axes:
+        ax.set_xlabel("J Values")
+        ax.set_ylabel("I Values")
+        ax.set_xticks(range(len(j_values)))
+        ax.set_xticklabels(j_values)
+        ax.set_yticks(range(len(i_values)))
+        ax.set_yticklabels(i_values)
+
     im1 = axes[0].imshow(
-        np.log(nnz_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
+        np.log10(nnz_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
     )
-    axes[0].set_title("NNZ Difference (Majorana - Ramsey)")
-    axes[0].set_xlabel("J Values")
-    axes[0].set_ylabel("I Values")
-    axes[0].set_xticks(range(len(j_values)))
-    axes[0].set_xticklabels(j_values)
-    axes[0].set_yticks(range(len(i_values)))
-    axes[0].set_yticklabels(i_values)
+    axes[0].set_title(r"log$_{10}$ [NNZ Difference (Majorana - Dicke)]")
     fig.colorbar(im1, ax=axes[0])
 
     im2 = axes[1].imshow(
-        np.log(size_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
+        np.log10(size_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
     )
-    axes[1].set_title("Size Difference (Majorana - Ramsey)")
-    axes[1].set_xlabel("J Values")
-    axes[1].set_ylabel("I Values")
-    axes[1].set_xticks(range(len(j_values)))
-    axes[1].set_xticklabels(j_values)
-    axes[1].set_yticks(range(len(i_values)))
-    axes[1].set_yticklabels(i_values)
+    axes[1].set_title(r"log$_{10}$ [Size Difference (Majorana - Dicke)]")
     fig.colorbar(im2, ax=axes[1])
 
     norm_sparsity = TwoSlopeNorm(
@@ -131,13 +127,7 @@ def generate_heatmaps(
         origin="lower",
         aspect="auto",
     )
-    axes[2].set_title("Sparsity Difference (Majorana - Ramsey)")
-    axes[2].set_xlabel("J Values")
-    axes[2].set_ylabel("I Values")
-    axes[2].set_xticks(range(len(j_values)))
-    axes[2].set_xticklabels(j_values)
-    axes[2].set_yticks(range(len(i_values)))
-    axes[2].set_yticklabels(i_values)
+    axes[2].set_title("Sparsity Difference (Majorana - Dicke)")
     fig.colorbar(im3, ax=axes[2])
 
     plt.tight_layout()
@@ -163,7 +153,7 @@ if __name__ == "__main__":
     for result in results:
         print(f"I={result.i}, J={result.j}")
         print(
-            f"  Ramsey: nnz={result.ramsey[0]}, size={result.ramsey[1]}, sparsity={result.ramsey[2]:.1%}"
+            f"  Dicke: nnz={result.dicke[0]}, size={result.dicke[1]}, sparsity={result.dicke[2]:.1%}"
         )
         print(
             f"  Majorana: nnz={result.majorana[0]}, size={result.majorana[1]}, sparsity={result.majorana[2]:.1%}"

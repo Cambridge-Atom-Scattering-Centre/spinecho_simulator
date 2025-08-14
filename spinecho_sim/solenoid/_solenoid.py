@@ -27,7 +27,7 @@ from spinecho_sim.state._state import (
 from spinecho_sim.util import solve_ivp_typed, timed
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
     from spinecho_sim.state._state import (
         CoherentParticleState,
@@ -153,7 +153,7 @@ class Solenoid:
     @timed
     def simulate_trajectories(
         self,
-        initial_states: list[ParticleState],
+        initial_states: Sequence[ParticleState],
         n_steps: int = 100,
     ) -> MonatomicSolenoidSimulationResult:
         msg = "Diatomic solenoid simulation not implemented."
@@ -279,7 +279,7 @@ class MonatomicSolenoid(Solenoid):
     @override
     def simulate_trajectories(
         self,
-        initial_states: list[ParticleState],
+        initial_states: Sequence[ParticleState],
         n_steps: int = 100,
     ) -> MonatomicSolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
