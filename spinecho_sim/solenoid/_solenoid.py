@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, override
 
@@ -11,21 +10,18 @@ from tqdm import tqdm
 
 from spinecho_sim.state import (
     DiatomicParticleState,
+    DiatomicTrajectory,
+    DiatomicTrajectoryList,
     MonatomicParticleState,
+    MonatomicTrajectory,
+    MonatomicTrajectoryList,
     ParticleDisplacement,
     ParticleDisplacementList,
     Spin,
-    Trajectory,
-    TrajectoryList,
 )
+from spinecho_sim.state._spin import EmptySpinList
 from spinecho_sim.state._state import (
     CoherentMonatomicParticleState,
-)
-from spinecho_sim.state._trajectory import (
-    DiatomicTrajectory,
-    DiatomicTrajectoryList,
-    MonatomicTrajectory,
-    MonatomicTrajectoryList,
 )
 from spinecho_sim.util import solve_ivp_typed, timed
 
@@ -38,15 +34,21 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidTrajectory(ABC):
-    """Represents the trajectory of a particle as it moves through the simulation."""
+class DiatomicSolenoidTrajectory:
+    """Represents the trajectory of a diatomic particle in a solenoid."""
 
-    trajectory: Trajectory
+    trajectory: DiatomicTrajectory
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
-    @abstractmethod
-    def spins(self) -> tuple[Spin[tuple[int, int]], ...]: ...
+    def spin(self) -> Spin[tuple[int, int]]:
+        """The spin components from the simulation states."""
+        return self.trajectory.spin
+
+    @property
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int]]:
+        """The rotational angular momentum of the particle."""
+        return self.trajectory.rotational_angular_momentum
 
     @property
     def displacement(self) -> ParticleDisplacement:
@@ -55,44 +57,32 @@ class SolenoidTrajectory(ABC):
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidTrajectory(SolenoidTrajectory):
+class MonatomicSolenoidTrajectory(DiatomicSolenoidTrajectory):
     """Represents the trajectory of a monatomic particle in a solenoid."""
 
     trajectory: MonatomicTrajectory
 
     @property
     @override
-    def spins(self) -> tuple[Spin[tuple[int, int]], ...]:
-        """The spin components from the simulation states."""
-        return (self.trajectory.spin_angular_momentum,)
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int]]:
+        """The rotational angular momentum of the particle."""
+        return EmptySpinList(self.spin.shape)
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoidTrajectory(SolenoidTrajectory):
-    """Represents the trajectory of a diatomic particle in a solenoid."""
-
-    trajectory: DiatomicTrajectory
-
-    @property
-    @override
-    def spins(self) -> tuple[Spin[tuple[int, int]], ...]:
-        """The spin components from the simulation states."""
-        return (
-            self.trajectory.nuclear_angular_momentum,
-            self.trajectory.rotational_angular_momentum,
-        )
-
-
-@dataclass(kw_only=True, frozen=True)
-class SolenoidSimulationResult(ABC):
+class DiatomicSolenoidSimulationResult:
     """Represents the result of a solenoid simulation."""
 
-    trajectories: TrajectoryList
+    trajectories: DiatomicTrajectoryList
     positions: np.ndarray[Any, np.dtype[np.floating]]
 
     @property
-    @abstractmethod
-    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]: ...
+    def spin(self) -> Spin[tuple[int, int, int]]:
+        return self.trajectories.spin
+
+    @property
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
+        return self.trajectories.rotational_angular_momentum
 
     @property
     def displacements(self) -> ParticleDisplacementList:
@@ -101,53 +91,38 @@ class SolenoidSimulationResult(ABC):
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
+class MonatomicSolenoidSimulationResult(DiatomicSolenoidSimulationResult):
     trajectories: MonatomicTrajectoryList
 
     @property
     @override
-    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
-        """Extract the spin components from the simulation states."""
-        return (self.trajectories.spin_angular_momentum,)
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
+        return self.trajectories.rotational_angular_momentum
 
 
 @dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoidSimulationResult(SolenoidSimulationResult):
-    trajectories: DiatomicTrajectoryList
-
-    @property
-    @override
-    def spins(self) -> tuple[Spin[tuple[int, int, int]], ...]:
-        """Extract the spin components from the simulation states."""
-        return (
-            self.trajectories.nuclear_angular_momentum,
-            self.trajectories.rotational_angular_momentum,
-        )
-
-
-@dataclass(kw_only=True, frozen=True)
-class Solenoid(ABC):
+class DiatomicSolenoid:
     """Dataclass representing a solenoid with its parameters."""
 
     length: float
     field: Callable[[float], np.ndarray[Any, np.dtype[np.floating]]]
 
     @classmethod
-    def with_uniform_z(cls, length: float, strength: float) -> Solenoid:
+    def with_uniform_z(cls, length: float, strength: float) -> DiatomicSolenoid:
         """Build a solenoid with a uniform field along the z-axis."""
         return cls(length=length, field=lambda _z: np.array([0.0, 0.0, strength]))
 
     @classmethod
     def with_nonuniform_z(
         cls, length: float, strength: Callable[[float], float]
-    ) -> Solenoid:
+    ) -> DiatomicSolenoid:
         """Build a solenoid with a non-uniform field along the z-axis."""
         return cls(length=length, field=lambda z: np.array([0.0, 0.0, strength(z)]))
 
     @classmethod
     def from_experimental_parameters(
         cls, *, length: float, magnetic_constant: float, current: float
-    ) -> Solenoid:
+    ) -> DiatomicSolenoid:
         """Build a solenoid from an experimental magnetic constant and current."""
         b_z = np.pi * magnetic_constant * current / (2 * length)
         return cls.with_nonuniform_z(
@@ -155,7 +130,6 @@ class Solenoid(ABC):
             strength=lambda z: b_z * np.sin(np.pi * z / length) ** 2,
         )
 
-    @abstractmethod
     def _simulate_coherent_trajectory(
         self,
         initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
@@ -163,28 +137,32 @@ class Solenoid(ABC):
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
         np.ndarray[Any, np.dtype[np.floating]],
-    ]: ...
+    ]:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
 
-    @abstractmethod
     def simulate_trajectory(
         self,
         initial_state: MonatomicParticleState | DiatomicParticleState,
         n_steps: int = 100,
-    ) -> SolenoidTrajectory: ...
+    ) -> MonatomicSolenoidTrajectory:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
 
     @timed
-    @abstractmethod
     def simulate_trajectories(
         self,
         initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
         n_steps: int = 100,
-    ) -> SolenoidSimulationResult: ...
+    ) -> MonatomicSolenoidSimulationResult:
+        msg = "Diatomic solenoid simulation not implemented."
+        raise NotImplementedError(msg)
 
 
 def _get_field(
     z: float,
     displacement: ParticleDisplacement,
-    solenoid: Solenoid,
+    solenoid: DiatomicSolenoid,
     dz: float = 1e-5,
 ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
     if displacement.r == 0:
@@ -210,7 +188,7 @@ def _get_field(
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoid(Solenoid):
+class MonatomicSolenoid(DiatomicSolenoid):
     @override
     def _simulate_coherent_trajectory(
         self,
@@ -252,8 +230,8 @@ class MonatomicSolenoid(Solenoid):
 
         y0 = np.array(
             [
-                initial_state.spin_angular_momentum.theta.item(),
-                initial_state.spin_angular_momentum.phi.item(),
+                initial_state.spin.theta.item(),
+                initial_state.spin.phi.item(),
             ]
         )
 
@@ -278,9 +256,7 @@ class MonatomicSolenoid(Solenoid):
             "Expected a coherent monatomic particle state."
         )
 
-        data = np.empty(
-            (n_steps + 1, initial_state.spin_angular_momentum.size, 2), dtype=np.float64
-        )
+        data = np.empty((n_steps + 1, initial_state.spin.size, 2), dtype=np.float64)
         for i, s in enumerate(initial_state.as_coherent()):
             thetas, phis = self._simulate_coherent_trajectory(s, n_steps)
             data[:, i, 0] = thetas
@@ -291,7 +267,8 @@ class MonatomicSolenoid(Solenoid):
 
         return MonatomicSolenoidTrajectory(
             trajectory=MonatomicTrajectory(
-                spin_angular_momentum=spins,
+                _spin_angular_momentum=spins,
+                _rotational_angular_momentum=EmptySpinList(spins.shape),
                 displacement=initial_state.displacement,
                 parallel_velocity=initial_state.parallel_velocity,
             ),
@@ -325,37 +302,3 @@ class MonatomicSolenoid(Solenoid):
             ),
             positions=z_points,
         )
-
-
-@dataclass(kw_only=True, frozen=True)
-class DiatomicSolenoid(Solenoid):
-    @override
-    def _simulate_coherent_trajectory(
-        self,
-        initial_state: CoherentMonatomicParticleState | CoherentDiatomicParticleState,
-        n_steps: int = 100,
-    ) -> tuple[
-        np.ndarray[Any, np.dtype[np.floating]],
-        np.ndarray[Any, np.dtype[np.floating]],
-    ]:
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
-
-    @override
-    def simulate_trajectory(
-        self,
-        initial_state: MonatomicParticleState | DiatomicParticleState,
-        n_steps: int = 100,
-    ) -> MonatomicSolenoidTrajectory:
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
-
-    @timed
-    @override
-    def simulate_trajectories(
-        self,
-        initial_states: list[MonatomicParticleState] | list[DiatomicParticleState],
-        n_steps: int = 100,
-    ) -> MonatomicSolenoidSimulationResult:
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
