@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable, Iterator, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, overload, override
 
 import numpy as np
@@ -12,7 +12,7 @@ from spinecho_sim.state import (
     ParticleDisplacementList,
     Spin,
 )
-from spinecho_sim.state._spin import EmptySpin, EmptySpinList, EmptySpinListList
+from spinecho_sim.state._spin import EmptySpinList, EmptySpinListList
 
 if TYPE_CHECKING:
     from spinecho_sim.state import (
@@ -94,6 +94,18 @@ class DiatomicTrajectory(Sequence[Any]):
 
 @dataclass(frozen=True, kw_only=True)
 class MonatomicTrajectory(DiatomicTrajectory):
+    _rotational_angular_momentum: EmptySpinList = field(
+        init=False
+    )  # Automatically set later
+
+    def __post_init__(self) -> None:
+        """Automatically set rotational angular momentum to an EmptySpinList with the same shape as spin."""
+        object.__setattr__(
+            self,
+            "_rotational_angular_momentum",
+            EmptySpinList(self._spin_angular_momentum.shape),
+        )
+
     @staticmethod
     @override
     def from_states(
@@ -114,9 +126,6 @@ class MonatomicTrajectory(DiatomicTrajectory):
 
         return MonatomicTrajectory(
             _spin_angular_momentum=Spin.from_iter(s.spin for s in mono_states),
-            _rotational_angular_momentum=EmptySpinList(
-                Spin.from_iter(s.spin for s in mono_states).shape
-            ),
             displacement=displacements[0],
             parallel_velocity=velocities[0],
         )
@@ -141,14 +150,12 @@ class MonatomicTrajectory(DiatomicTrajectory):
         if isinstance(index, int):
             return MonatomicParticleState(
                 _spin_angular_momentum=self.spin[index],
-                _rotational_angular_momentum=EmptySpin(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
             )
 
         return MonatomicTrajectory(
             _spin_angular_momentum=self.spin[index],
-            _rotational_angular_momentum=EmptySpinList(self.spin[index].shape),
             displacement=self.displacement,
             parallel_velocity=self.parallel_velocity,
         )
@@ -244,6 +251,10 @@ class DiatomicTrajectoryList(Sequence[DiatomicTrajectory]):
 class MonatomicTrajectoryList(DiatomicTrajectoryList):
     """A list of monatomic trajectories."""
 
+    _rotational_angular_momentum: EmptySpinListList = field(
+        init=False
+    )  # Automatically set later
+
     @override
     def __post_init__(self) -> None:
         if (
@@ -253,6 +264,12 @@ class MonatomicTrajectoryList(DiatomicTrajectoryList):
         ):
             msg = "Spins must be a 2D array, parallel velocities and displacements must be 1D arrays, and their shapes must match."
             raise ValueError(msg)
+        """Automatically set rotational angular momentum to an EmptySpinList with the same shape as spin."""
+        object.__setattr__(
+            self,
+            "_rotational_angular_momentum",
+            EmptySpinListList(self._spin_angular_momentum.shape),
+        )
 
     @property
     @override
@@ -278,7 +295,6 @@ class MonatomicTrajectoryList(DiatomicTrajectoryList):
         parallel_velocities = np.array([t.parallel_velocity for t in mono_trajectories])
         return MonatomicTrajectoryList(
             _spin_angular_momentum=spins,
-            _rotational_angular_momentum=EmptySpinListList(spins.shape),
             displacements=displacements,
             parallel_velocities=parallel_velocities,
         )
@@ -295,13 +311,11 @@ class MonatomicTrajectoryList(DiatomicTrajectoryList):
         if isinstance(index, slice):
             return MonatomicTrajectoryList(
                 _spin_angular_momentum=self.spin[index],
-                _rotational_angular_momentum=EmptySpinListList(self.spin[index].shape),
                 displacements=self.displacements[index],
                 parallel_velocities=self.parallel_velocities[index],
             )
         return MonatomicTrajectory(
             _spin_angular_momentum=self.spin[index],
-            _rotational_angular_momentum=EmptySpinList(self.spin[index].shape),
             displacement=self.displacements[index],
             parallel_velocity=self.parallel_velocities[index],
         )
@@ -311,7 +325,6 @@ class MonatomicTrajectoryList(DiatomicTrajectoryList):
         for i in range(len(self)):
             yield MonatomicTrajectory(
                 _spin_angular_momentum=self.spin[i],
-                _rotational_angular_momentum=EmptySpinList(self.spin[i].shape),
                 displacement=self.displacements[i],
                 parallel_velocity=self.parallel_velocities[i],
             )

@@ -19,7 +19,7 @@ if __name__ == "__main__":
     # rotate towards s_z, which reduces the intensity of the beam.
     particle_velocity = 714
     initial_state = MonatomicParticleState(
-        spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
+        _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=1
         ),
         parallel_velocity=714,
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     )
     result = solenoid.simulate_trajectory(initial_state, n_steps=1000)
 
-    n_stars = result.spins[0].n_stars
+    n_stars = result.spin.n_stars
     S = n_stars / 2
     S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
 

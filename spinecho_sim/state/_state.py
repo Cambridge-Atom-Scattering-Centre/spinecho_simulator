@@ -57,6 +57,11 @@ class CoherentDiatomicParticleState(DiatomicParticleState):
 @dataclass(frozen=True, kw_only=True)
 class MonatomicParticleState(DiatomicParticleState):
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
+    _rotational_angular_momentum: EmptySpin = field(init=False)
+
+    def __post_init__(self) -> None:
+        """Automatically set rotational angular momentum to an EmptySpin with the same shape as spin."""
+        object.__setattr__(self, "_rotational_angular_momentum", EmptySpin())
 
     @property
     @override
@@ -68,7 +73,6 @@ class MonatomicParticleState(DiatomicParticleState):
         return [
             CoherentMonatomicParticleState(
                 _spin_angular_momentum=s.as_generic(),
-                _rotational_angular_momentum=EmptySpin(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
                 gyromagnetic_ratio=self.gyromagnetic_ratio,
@@ -86,10 +90,14 @@ class MonatomicParticleState(DiatomicParticleState):
 class CoherentMonatomicParticleState(
     MonatomicParticleState, CoherentDiatomicParticleState
 ):
+    _rotational_angular_momentum: EmptySpin = field(init=False)
+
     def __post_init__(self) -> None:
         assert self._spin_angular_momentum.size == 1, (
             "CoherentParticleState must represent a single coherent spin."
         )
+        """Automatically set rotational angular momentum to an EmptySpin with the same shape as spin."""
+        object.__setattr__(self, "_rotational_angular_momentum", EmptySpin())
 
     @property
     @override
