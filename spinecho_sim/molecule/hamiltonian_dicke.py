@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from functools import reduce
+from functools import cache, reduce
 
 import numpy as np
 import scipy.sparse as sp  # type: ignore[import]
@@ -17,6 +17,7 @@ from spinecho_sim.util import (
 )
 
 
+@cache
 def single_spin_ops_sparse(
     s: float,
 ) -> tuple[sp.csr_matrix, sp.csr_matrix, sp.csr_matrix]:
@@ -39,6 +40,7 @@ def single_spin_ops_sparse(
     return j_x, j_y, j_z
 
 
+@cache
 def collective_ops_sparse(
     i: float, j: float
 ) -> tuple[list[sp.csr_matrix], list[sp.csr_matrix]]:
@@ -55,6 +57,54 @@ def collective_ops_sparse(
     return operators_i, operators_j
 
 
+def zeeman_hamiltonian_dicke(
+    ops: list[sp.csr_matrix], b_vec: tuple[float, float, float]
+) -> sp.csr_matrix:
+    """Generate and cache the Zeeman Hamiltonian for two spin systems."""
+    x, y, z = ops
+    return csr_add(
+        csr_add(csr_scale(x, b_vec[0]), csr_scale(y, b_vec[1])),
+        csr_scale(z, b_vec[2]),
+    )
+
+
+@cache
+def spin_rotation_hamiltonian_dicke(i: float, j: float) -> sp.csr_matrix:
+    """Generate the spin-rotation Hamiltonian for two spin systems."""
+    i_ops, j_ops = collective_ops_sparse(i, j)
+    return reduce(csr_add, map(sparse_matmul, i_ops, j_ops))
+
+
+@cache
+def quadrupole_hamiltonian_dicke(i: float, j: float) -> sp.csr_matrix:
+    """Generate the quadrupole Hamiltonian for two spin systems."""
+    i_ops, j_ops = collective_ops_sparse(i, j)
+    i_dot_j = spin_rotation_hamiltonian_dicke(i, j)
+    ij_sq = sparse_matmul(i_dot_j, i_dot_j)
+    i_sq = reduce(csr_add, map(sparse_matmul, i_ops, i_ops))
+    j_sq = reduce(csr_add, map(sparse_matmul, j_ops, j_ops))
+    return csr_subtract(
+        csr_add(csr_scale(ij_sq, 3), csr_scale(i_dot_j, 1.5)),
+        sparse_matmul(i_sq, j_sq),
+    )
+
+
+@cache
+def cache_terms_hamiltonian_dicke(
+    i: float, j: float, c: float, d: float
+) -> sp.csr_matrix:
+    """Generate the cache terms Hamiltonian for two spin systems."""
+    # 2) spin-rotation
+    hamiltonian_spin_rotation = csr_scale(spin_rotation_hamiltonian_dicke(i, j), -c)
+
+    # 3) quadrupole / spin-spin
+    hamiltonian_quadrupole = csr_scale(
+        quadrupole_hamiltonian_dicke(i, j),
+        (5 * d / ((2 * j - 1) * (2 * j + 3))),
+    )
+    return csr_add(hamiltonian_spin_rotation, hamiltonian_quadrupole)
+
+
 def diatomic_hamiltonian_dicke(
     i: float,
     j: float,
@@ -63,45 +113,13 @@ def diatomic_hamiltonian_dicke(
 ) -> sp.csr_matrix:
     """Generate the Ramsey Hamiltonian as a sparse matrix."""
     a, b, c, d = coefficients
-    i_ops, j_ops = collective_ops_sparse(i, j)
-    b_mag = np.linalg.norm(b_vec)
-
-    # Helper function for linear Zeeman term
-    def linear_zeeman_term(
-        ops: list[sp.csr_matrix], scale_factor: complex
-    ) -> sp.csr_matrix:
-        x, y, z = ops
-        return csr_scale(
-            csr_add(
-                csr_add(csr_scale(x, b_vec[0]), csr_scale(y, b_vec[1])),
-                csr_scale(z, b_vec[2]),
-            ),
-            -complex(scale_factor / b_mag),
-        )
-
     # Generate spin operators
     i_ops, j_ops = collective_ops_sparse(i, j)
 
     # Linear Zeeman terms
-    hamiltonian_i = linear_zeeman_term(i_ops, a)
-    hamiltonian_j = linear_zeeman_term(j_ops, b)
+    hamiltonian_i = csr_scale(zeeman_hamiltonian_dicke(i_ops, b_vec), a)
+    hamiltonian_j = csr_scale(zeeman_hamiltonian_dicke(j_ops, b_vec), b)
 
-    # 2) spin-rotation
-    i_dot_j = reduce(csr_add, map(sparse_matmul, i_ops, j_ops))
-    hamiltonian_spin_rotation = csr_scale(i_dot_j, -c)
-
-    # 3) quadrupole / spin-spin
-    ij_sq = sparse_matmul(i_dot_j, i_dot_j)
-    i_sq = reduce(csr_add, map(sparse_matmul, i_ops, i_ops))
-    j_sq = reduce(csr_add, map(sparse_matmul, j_ops, j_ops))
-    hamiltonian_quadrupole = csr_scale(
-        csr_subtract(
-            csr_add(csr_scale(ij_sq, 3), csr_scale(i_dot_j, 1.5)),
-            sparse_matmul(i_sq, j_sq),
-        ),
-        (5 * d / ((2 * j - 1) * (2 * j + 3))),
-    )
     return csr_add(
-        csr_add(csr_add(hamiltonian_i, hamiltonian_j), hamiltonian_spin_rotation),
-        hamiltonian_quadrupole,
+        csr_add(hamiltonian_i, hamiltonian_j), cache_terms_hamiltonian_dicke(i, j, c, d)
     )
