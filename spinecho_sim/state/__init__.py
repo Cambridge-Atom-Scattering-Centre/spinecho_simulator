@@ -19,8 +19,6 @@ from spinecho_sim.state._displacement import (
     ParticleDisplacementList,
 )
 from spinecho_sim.state._samples import (
-    sample_constant_displacement,
-    sample_constant_velocity,
     sample_gaussian_velocities,
     sample_uniform_displacement,
 )
@@ -66,8 +64,6 @@ __all__ = [
     "TrajectoryList",
     "get_bargmann_expectation_values",
     "get_expectation_values",
-    "sample_constant_displacement",
-    "sample_constant_velocity",
     "sample_gaussian_velocities",
     "sample_uniform_displacement",
 ]
