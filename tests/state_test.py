@@ -7,6 +7,7 @@ import pytest
 
 from spinecho_sim.state import (
     CoherentSpin,
+    EmptySpinList,
     MonatomicTrajectory,
     MonatomicTrajectoryList,
     ParticleDisplacement,
@@ -156,22 +157,23 @@ def test_trajectory_list() -> None:
         CoherentSpin(theta=np.pi / 3, phi=np.pi / 4).as_generic(n_stars=n_stars),
     ]
     trajectory = MonatomicTrajectory(
-        spin_angular_momentum=Spin.from_iter(spins),
+        _spin_angular_momentum=Spin.from_iter(spins),
+        _rotational_angular_momentum=EmptySpinList(Spin.from_iter(spins).shape),
         displacement=ParticleDisplacement(r=0, theta=0),
         parallel_velocity=10.0,
     )
     trajectory_list = MonatomicTrajectoryList.from_trajectories([trajectory])
 
     assert len(trajectory_list) == 1
-    assert trajectory_list.spin_angular_momentum.n_stars == n_stars
+    assert trajectory_list.spin.n_stars == n_stars
 
     np.testing.assert_array_equal(
-        trajectory_list.spin_angular_momentum.theta[0, ..., 0],
-        trajectory.spin_angular_momentum.theta[..., 0],
+        trajectory_list.spin.theta[0, ..., 0],
+        trajectory.spin.theta[..., 0],
         err_msg="Theta values do not match",
     )
     np.testing.assert_array_equal(
-        trajectory_list.spin_angular_momentum.phi[0, ..., 0],
-        trajectory.spin_angular_momentum.phi[..., 0],
+        trajectory_list.spin.phi[0, ..., 0],
+        trajectory.spin.phi[..., 0],
         err_msg="Phi values do not match",
     )

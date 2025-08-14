@@ -7,13 +7,15 @@ import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 
 from spinecho_sim.solenoid import (
+    DiatomicSolenoid,
+    DiatomicSolenoidTrajectory,
     MonatomicSolenoid,
     MonatomicSolenoidTrajectory,
-    Solenoid,
-    SolenoidTrajectory,
 )
 from spinecho_sim.state import (
     CoherentSpin,
+    EmptySpin,
+    EmptySpinList,
     MonatomicParticleState,
     MonatomicTrajectory,
     ParticleDisplacement,
@@ -26,7 +28,7 @@ from spinecho_sim.state import (
 def _get_field(
     z: float,
     displacement: ParticleDisplacement,
-    solenoid: Solenoid,
+    solenoid: DiatomicSolenoid,
     dz: float = 1e-5,
 ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
     if displacement.r == 0:
@@ -51,11 +53,11 @@ def _get_field(
     )
 
 
-def simulate_trajectory_cartesean(
-    solenoid: Solenoid,
+def simulate_trajectory_cartesian(
+    solenoid: DiatomicSolenoid,
     initial_state: MonatomicParticleState,
     n_steps: int = 100,
-) -> SolenoidTrajectory:
+) -> DiatomicSolenoidTrajectory:
     """Run the spin echo simulation using configured parameters."""
     z_points = np.linspace(0, solenoid.length, n_steps + 1, endpoint=True)
 
@@ -73,7 +75,7 @@ def simulate_trajectory_cartesean(
     sol = solve_ivp(  # type: ignore[return-value]
         fun=_ds_dx,
         t_span=(z_points[0], z_points[-1]),
-        y0=initial_state.spin_angular_momentum.item(0).cartesian,
+        y0=initial_state.spin.item(0).cartesian,
         t_eval=z_points,
         vectorized=False,
         rtol=1e-8,
@@ -83,7 +85,8 @@ def simulate_trajectory_cartesean(
     )
     return MonatomicSolenoidTrajectory(
         trajectory=MonatomicTrajectory(
-            spin_angular_momentum=spins,
+            _spin_angular_momentum=spins,
+            _rotational_angular_momentum=EmptySpinList(spins.shape),
             displacement=initial_state.displacement,
             parallel_velocity=initial_state.parallel_velocity,
         ),
@@ -95,7 +98,8 @@ def test_simulate_trajectory() -> None:
     particle_velocity = 714
 
     initial_state = MonatomicParticleState(
-        spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(),
+        _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(),
+        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -110,12 +114,12 @@ def test_simulate_trajectory() -> None:
     n_steps = 300
     result = solenoid.simulate_trajectory(initial_state, n_steps=n_steps)
 
-    assert result.spins[0].cartesian.shape == (3, n_steps + 1, 1)
+    assert result.spin.cartesian.shape == (3, n_steps + 1, 1)
 
-    expected = simulate_trajectory_cartesean(solenoid, initial_state, n_steps=n_steps)
+    expected = simulate_trajectory_cartesian(solenoid, initial_state, n_steps=n_steps)
     np.testing.assert_allclose(
-        result.spins[0].cartesian,
-        expected.spins[0].cartesian,
+        result.spin.cartesian,
+        expected.spin.cartesian,
         atol=1e-4,
     )
 
@@ -124,9 +128,10 @@ def test_simulate_trajectories() -> None:
     particle_velocity = 714
 
     initial_state = MonatomicParticleState(
-        spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
+        _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=2
         ),
+        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -142,13 +147,13 @@ def test_simulate_trajectories() -> None:
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
-        result.spins[0].theta[0, ..., 0],
-        expected.spins[0].theta[..., 1],
+        result.spin.theta[0, ..., 0],
+        expected.spin.theta[..., 1],
         atol=1e-4,
     )
     np.testing.assert_allclose(
-        result.spins[0].phi[0, ..., 0],
-        expected.spins[0].phi[..., 1],
+        result.spin.phi[0, ..., 0],
+        expected.spin.phi[..., 1],
         atol=1e-4,
     )
 
@@ -157,9 +162,10 @@ def test_simulate_trajectory_high_spin() -> None:
     particle_velocity = 714
 
     initial_state = MonatomicParticleState(
-        spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
+        _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=2
         ),
+        _rotational_angular_momentum=EmptySpin(),
         displacement=sample_uniform_displacement(1, 1.16e-3)[0],
         parallel_velocity=sample_gaussian_velocities(
             1, particle_velocity, 0.225 * particle_velocity
@@ -174,20 +180,21 @@ def test_simulate_trajectory_high_spin() -> None:
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
-        result.spins[0].theta[0, ..., 0],
-        result.spins[0].theta[1, ..., 1],
+        result.spin.theta[0, ..., 0],
+        result.spin.theta[1, ..., 1],
         atol=1e-4,
     )
     np.testing.assert_allclose(
-        result.spins[0].phi[0, ..., 0],
-        result.spins[0].phi[1, ..., 1],
+        result.spin.phi[0, ..., 0],
+        result.spin.phi[1, ..., 1],
         atol=1e-4,
     )
 
     initial_state_1 = MonatomicParticleState(
-        spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
+        _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
             n_stars=1
         ),
+        _rotational_angular_momentum=EmptySpin(),
         displacement=initial_state.displacement,
         parallel_velocity=initial_state.parallel_velocity,
     )
@@ -195,12 +202,12 @@ def test_simulate_trajectory_high_spin() -> None:
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
-        result_1.spins[0].theta[..., 0],
-        result.spins[0].theta[..., 1],
+        result_1.spin.theta[..., 0],
+        result.spin.theta[..., 1],
         atol=1e-4,
     )
     np.testing.assert_allclose(
-        result_1.spins[0].phi[..., 0],
-        result.spins[0].phi[..., 1],
+        result_1.spin.phi[..., 0],
+        result.spin.phi[..., 1],
         atol=1e-4,
     )
