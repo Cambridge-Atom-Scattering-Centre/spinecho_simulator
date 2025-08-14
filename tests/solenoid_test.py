@@ -7,10 +7,10 @@ import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 
 from spinecho_sim.solenoid import (
-    DiatomicSolenoid,
-    DiatomicSolenoidTrajectory,
     MonatomicSolenoid,
     MonatomicSolenoidTrajectory,
+    Solenoid,
+    SolenoidTrajectory,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -26,7 +26,7 @@ from spinecho_sim.state import (
 def _get_field(
     z: float,
     displacement: ParticleDisplacement,
-    solenoid: DiatomicSolenoid,
+    solenoid: Solenoid,
     dz: float = 1e-5,
 ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
     if displacement.r == 0:
@@ -52,10 +52,10 @@ def _get_field(
 
 
 def simulate_trajectory_cartesian(
-    solenoid: DiatomicSolenoid,
+    solenoid: Solenoid,
     initial_state: MonatomicParticleState,
     n_steps: int = 100,
-) -> DiatomicSolenoidTrajectory:
+) -> SolenoidTrajectory:
     """Run the spin echo simulation using configured parameters."""
     z_points = np.linspace(0, solenoid.length, n_steps + 1, endpoint=True)
 

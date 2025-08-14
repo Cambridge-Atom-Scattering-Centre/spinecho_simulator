@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, kw_only=True)
-class DiatomicParticleState:
+class ParticleState:
     """State of a diatomic particle."""
 
     displacement: ParticleDisplacement = field(default_factory=ParticleDisplacement)
@@ -32,9 +32,9 @@ class DiatomicParticleState:
         return self._rotational_angular_momentum
 
     @abstractmethod
-    def as_coherent(self) -> Sequence[CoherentDiatomicParticleState]:
+    def as_coherent(self) -> Sequence[CoherentParticleState]:
         return [
-            CoherentDiatomicParticleState(
+            CoherentParticleState(
                 _spin_angular_momentum=spin.as_generic(),
                 _rotational_angular_momentum=rot.as_generic(),
                 displacement=self.displacement,
@@ -48,14 +48,14 @@ class DiatomicParticleState:
 
 
 @dataclass(frozen=True, kw_only=True)
-class CoherentDiatomicParticleState(DiatomicParticleState):
+class CoherentParticleState(ParticleState):
     def __post_init__(self) -> None:
         assert self.spin.size == 1
         assert self.rotational_angular_momentum.size == 1
 
 
 @dataclass(frozen=True, kw_only=True)
-class MonatomicParticleState(DiatomicParticleState):
+class MonatomicParticleState(ParticleState):
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
     _rotational_angular_momentum: EmptySpin = field(init=False)
 
@@ -87,9 +87,7 @@ class MonatomicParticleState(DiatomicParticleState):
 
 
 @dataclass(frozen=True, kw_only=True)
-class CoherentMonatomicParticleState(
-    MonatomicParticleState, CoherentDiatomicParticleState
-):
+class CoherentMonatomicParticleState(MonatomicParticleState, CoherentParticleState):
     _rotational_angular_momentum: EmptySpin = field(init=False)
 
     def __post_init__(self) -> None:

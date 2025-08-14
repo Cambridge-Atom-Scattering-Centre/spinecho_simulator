@@ -37,22 +37,19 @@ from spinecho_sim.state._spin import (
     get_expectation_values,
 )
 from spinecho_sim.state._state import (
-    DiatomicParticleState,
     MonatomicParticleState,
+    ParticleState,
 )
 from spinecho_sim.state._trajectory import (
-    DiatomicTrajectory,
-    DiatomicTrajectoryList,
     MonatomicTrajectory,
     MonatomicTrajectoryList,
+    Trajectory,
+    TrajectoryList,
 )
 
 __all__ = [
     "CoherentSpin",
     "CoherentSpinList",
-    "DiatomicParticleState",
-    "DiatomicTrajectory",
-    "DiatomicTrajectoryList",
     "EmptySpin",
     "EmptySpinList",
     "EmptySpinListList",
@@ -63,7 +60,10 @@ __all__ = [
     "MonatomicTrajectoryList",
     "ParticleDisplacement",
     "ParticleDisplacementList",
+    "ParticleState",
     "Spin",
+    "Trajectory",
+    "TrajectoryList",
     "get_bargmann_expectation_values",
     "get_expectation_values",
     "sample_constant_displacement",

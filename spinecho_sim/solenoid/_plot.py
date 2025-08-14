@@ -15,16 +15,16 @@ if TYPE_CHECKING:
     from mpl_toolkits.mplot3d import Axes3D  # type: ignore[import-untyped]
 
     from spinecho_sim.solenoid._solenoid import (
-        DiatomicSolenoidSimulationResult,
+        SolenoidSimulationResult,
     )
     from spinecho_sim.state._trajectory import (
-        DiatomicTrajectory,
-        DiatomicTrajectoryList,
+        Trajectory,
+        TrajectoryList,
     )
 
 
 def plot_spin_state(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
     idx: int,
     *,
     measure: Measure = "abs",
@@ -78,7 +78,7 @@ def plot_spin_state(
 
 
 def plot_state_intensity(
-    result: DiatomicSolenoidSimulationResult, idx: int, *, ax: Axes | None = None
+    result: SolenoidSimulationResult, idx: int, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
     fig, ax = get_figure(ax)
 
@@ -100,7 +100,7 @@ def plot_state_intensity(
     return fig, ax, line
 
 
-def plot_spin_states(result: DiatomicSolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     n_stars = result.spin.n_stars
     fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
@@ -114,7 +114,7 @@ def plot_spin_states(result: DiatomicSolenoidSimulationResult) -> tuple[Figure, 
 
 
 def plot_expectation_value(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
     idx: int,
     *,
     ax: Axes | None = None,
@@ -163,7 +163,7 @@ def plot_expectation_value(
 
 
 def plot_expectation_values(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
 
@@ -175,7 +175,7 @@ def plot_expectation_values(
 
 
 def plot_expectation_phi(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
@@ -219,7 +219,7 @@ def plot_expectation_phi(
 
 
 def plot_expectation_theta(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
@@ -264,7 +264,7 @@ def plot_expectation_theta(
 
 
 def plot_expectation_angles(
-    result: DiatomicSolenoidSimulationResult,
+    result: SolenoidSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -277,7 +277,7 @@ def plot_expectation_angles(
 
 
 def plot_expectation_trajectory(
-    trajectory: DiatomicTrajectory,
+    trajectory: Trajectory,
 ) -> tuple[Figure, Axes3D, Line2D]:
     fig = plt.figure(figsize=(6, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
@@ -293,7 +293,7 @@ def plot_expectation_trajectory(
 
 
 def plot_expectation_trajectories(
-    trajectories: DiatomicTrajectoryList,
+    trajectories: TrajectoryList,
 ) -> tuple[Figure, Axes3D]:
     fig = plt.figure(figsize=(8, 8))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
