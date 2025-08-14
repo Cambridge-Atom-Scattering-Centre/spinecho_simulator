@@ -14,6 +14,7 @@ from spinecho_sim.solenoid import (
 )
 from spinecho_sim.state import (
     CoherentSpin,
+    EmptySpin,
     sample_gaussian_velocities,
     sample_uniform_displacement,
 )
@@ -23,9 +24,10 @@ if __name__ == "__main__":
     num_spins = 10
     initial_states = [
         MonatomicParticleState(
-            spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
+            _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
                 n_stars=1
             ),
+            _rotational_angular_momentum=EmptySpin(),
             displacement=displacement,
             parallel_velocity=velocity,
             gyromagnetic_ratio=-2.04e8,
@@ -46,7 +48,7 @@ if __name__ == "__main__":
     )
     result = solenoid.simulate_trajectories(initial_states, n_steps=1000)
 
-    n_stars = result.spins[0].n_stars
+    n_stars = result.spin.n_stars
     S = n_stars / 2
     S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
 

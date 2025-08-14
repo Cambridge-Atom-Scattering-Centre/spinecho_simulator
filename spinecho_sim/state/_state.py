@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass, field
 from itertools import product
 from typing import TYPE_CHECKING, override
 
 from spinecho_sim.state._displacement import ParticleDisplacement
+from spinecho_sim.state._spin import EmptySpin
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -14,50 +15,34 @@ if TYPE_CHECKING:
 
 
 @dataclass(frozen=True, kw_only=True)
-class BaseParticleState(ABC):
-    """Data every species carries: trajectory *not* dynamics."""
+class DiatomicParticleState:
+    """State of a diatomic particle."""
 
     displacement: ParticleDisplacement = field(default_factory=ParticleDisplacement)
     parallel_velocity: float
+    _spin_angular_momentum: GenericSpin
+    _rotational_angular_momentum: GenericSpin
 
     @property
+    def spin(self) -> GenericSpin:
+        return self._spin_angular_momentum
+
+    @property
+    def rotational_angular_momentum(self) -> GenericSpin:
+        return self._rotational_angular_momentum
+
     @abstractmethod
-    def spins(self) -> tuple[GenericSpin, ...]: ...
-
-    @abstractmethod
-    def as_coherent(self) -> Sequence[CoherentParticleState]: ...
-
-
-@dataclass(frozen=True, kw_only=True)
-class DiatomicParticleState(BaseParticleState):
-    nuclear_angular_momentum: GenericSpin  # I
-    rotational_angular_momentum: GenericSpin  # N
-
-    @property
-    @override
-    def spins(self) -> tuple[GenericSpin, GenericSpin]:
-        return (self.nuclear_angular_momentum, self.rotational_angular_momentum)
-
-    @property
-    def i(self) -> GenericSpin:
-        return self.nuclear_angular_momentum
-
-    @property
-    def j(self) -> GenericSpin:
-        return self.rotational_angular_momentum
-
-    @override
     def as_coherent(self) -> Sequence[CoherentDiatomicParticleState]:
         return [
             CoherentDiatomicParticleState(
-                nuclear_angular_momentum=nuc.as_generic(),
-                rotational_angular_momentum=rot.as_generic(),
+                _spin_angular_momentum=spin.as_generic(),
+                _rotational_angular_momentum=rot.as_generic(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
             )
-            for nuc, rot in product(
-                self.nuclear_angular_momentum.flat_iter(),
-                self.rotational_angular_momentum.flat_iter(),
+            for spin, rot in product(
+                self._spin_angular_momentum.flat_iter(),
+                self._rotational_angular_momentum.flat_iter(),
             )
         ]
 
@@ -65,39 +50,49 @@ class DiatomicParticleState(BaseParticleState):
 @dataclass(frozen=True, kw_only=True)
 class CoherentDiatomicParticleState(DiatomicParticleState):
     def __post_init__(self) -> None:
-        assert self.nuclear_angular_momentum.size == 1
+        assert self.spin.size == 1
         assert self.rotational_angular_momentum.size == 1
 
 
 @dataclass(frozen=True, kw_only=True)
-class MonatomicParticleState(BaseParticleState):
-    spin_angular_momentum: GenericSpin
+class MonatomicParticleState(DiatomicParticleState):
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
 
     @property
     @override
-    def spins(self) -> tuple[GenericSpin,]:
-        return (self.spin_angular_momentum,)
+    def spin(self) -> GenericSpin:
+        return self._spin_angular_momentum
 
     @override
     def as_coherent(self) -> Sequence[CoherentMonatomicParticleState]:
         return [
             CoherentMonatomicParticleState(
-                spin_angular_momentum=s.as_generic(),
+                _spin_angular_momentum=s.as_generic(),
+                _rotational_angular_momentum=EmptySpin(),
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
                 gyromagnetic_ratio=self.gyromagnetic_ratio,
             )
-            for s in self.spin_angular_momentum.flat_iter()
+            for s in self._spin_angular_momentum.flat_iter()
         ]
+
+    @property
+    @override
+    def rotational_angular_momentum(self) -> GenericSpin:
+        return EmptySpin()
 
 
 @dataclass(frozen=True, kw_only=True)
-class CoherentMonatomicParticleState(MonatomicParticleState):
+class CoherentMonatomicParticleState(
+    MonatomicParticleState, CoherentDiatomicParticleState
+):
     def __post_init__(self) -> None:
-        assert self.spin_angular_momentum.size == 1, (
+        assert self._spin_angular_momentum.size == 1, (
             "CoherentParticleState must represent a single coherent spin."
         )
 
-
-CoherentParticleState = CoherentMonatomicParticleState | CoherentDiatomicParticleState
+    @property
+    @override
+    def rotational_angular_momentum(self) -> GenericSpin:
+        """Ensure rotational_angular_momentum uses MonatomicParticleState's implementation."""
+        return super(MonatomicParticleState, self).rotational_angular_momentum

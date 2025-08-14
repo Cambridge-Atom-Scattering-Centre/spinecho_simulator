@@ -392,3 +392,68 @@ class CoherentSpin(Spin[tuple[()]]):
 type GenericSpin = Spin[tuple[int]]
 type GenericSpinList = Spin[tuple[int, int]]
 type CoherentSpinList = Spin[tuple[int]]
+
+
+class EmptySpin(Spin[tuple[int]]):
+    """Represents the absence of rotational angular momentum with zero Majorana stars."""
+
+    def __init__(self) -> None:
+        """Initialize EmptySpin with zero Majorana stars."""
+        # Create an array with zero rows and 2 columns
+        spins = np.zeros((0, 2), dtype=np.float64)
+        super().__init__(spins=spins)
+
+    @property
+    @override
+    def n_stars(self) -> int:
+        """Override the number of Majorana stars to return zero."""
+        return 0
+
+    @override
+    def flat_iter(self) -> Iterator[CoherentSpin]:
+        """Return an empty iterator since there are no Majorana stars."""
+        return iter([])
+
+
+class EmptySpinList(Spin[tuple[int, int]]):
+    """Represents a list of empty spins with zero Majorana stars."""
+
+    def __init__(self, shape: tuple[int, int]) -> None:
+        """Initialize EmptySpinList with a given number of empty spins."""
+        # Create an array with n_rows rows, n_cols columns, and 2 spin components, filled with zeros
+        spins = np.zeros(
+            (shape[0], shape[1], 2), dtype=np.float64
+        )  # Match the expected 3D shape
+        super().__init__(spins=spins)
+
+    @property
+    @override
+    def n_stars(self) -> int:
+        """Override the number of Majorana stars to return zero."""
+        return 0
+
+    @override
+    def flat_iter(self) -> Iterator[CoherentSpin]:
+        """Return an iterator over all empty spins."""
+        return EmptySpin().flat_iter()
+
+
+class EmptySpinListList(Spin[tuple[int, int, int]]):
+    """Represents the absence of rotational angular momentum with zero Majorana stars in a 3D structure."""
+
+    def __init__(self, shape: tuple[int, int, int]) -> None:
+        """Initialize EmptySpin3D with a given 3D shape."""
+        # Create an array with the specified shape and 2 spin components, filled with zeros
+        spins = np.zeros((*shape, 2), dtype=np.float64)
+        super().__init__(spins=spins)
+
+    @property
+    @override
+    def n_stars(self) -> int:
+        """Override the number of Majorana stars to return zero."""
+        return 0
+
+    @override
+    def flat_iter(self) -> Iterator[CoherentSpin]:
+        """Return an iterator over all empty spins."""
+        return EmptySpin().flat_iter()  # No Majorana stars, so return an empty iterator

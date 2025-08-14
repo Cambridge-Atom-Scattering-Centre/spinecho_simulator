@@ -15,13 +15,16 @@ if TYPE_CHECKING:
     from mpl_toolkits.mplot3d import Axes3D  # type: ignore[import-untyped]
 
     from spinecho_sim.solenoid._solenoid import (
-        SolenoidSimulationResult,
+        DiatomicSolenoidSimulationResult,
     )
-    from spinecho_sim.state._trajectory import Trajectory, TrajectoryList
+    from spinecho_sim.state._trajectory import (
+        DiatomicTrajectory,
+        DiatomicTrajectoryList,
+    )
 
 
 def plot_spin_state(
-    result: SolenoidSimulationResult,
+    result: DiatomicSolenoidSimulationResult,
     idx: int,
     *,
     measure: Measure = "abs",
@@ -30,12 +33,12 @@ def plot_spin_state(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    states = result.spins[0].momentum_states[idx, :, :]
+    states = result.spin.momentum_states[idx, :, :]
     state_measure = measure_data(states, measure)
 
     average_state_measure = np.average(state_measure, axis=0)
 
-    n_stars = result.spins[0].n_stars
+    n_stars = result.spin.n_stars
     s = n_stars / 2
     ms_values = np.linspace(s, -s, n_stars + 1, endpoint=True)
     ms_labels = [
@@ -75,12 +78,12 @@ def plot_spin_state(
 
 
 def plot_state_intensity(
-    result: SolenoidSimulationResult, idx: int, *, ax: Axes | None = None
+    result: DiatomicSolenoidSimulationResult, idx: int, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    states = result.spins[0].momentum_states[idx]
+    states = result.spin.momentum_states[idx]
     average_state_abs = np.average(np.abs(states) ** 2, axis=0)
 
     (line,) = ax.plot(
@@ -97,8 +100,8 @@ def plot_state_intensity(
     return fig, ax, line
 
 
-def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
-    n_stars = result.spins[0].n_stars
+def plot_spin_states(result: DiatomicSolenoidSimulationResult) -> tuple[Figure, Axes]:
+    n_stars = result.spin.n_stars
     fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
     for idx, (ax_abs, ax_arg) in enumerate(axes):
@@ -111,7 +114,7 @@ def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
 
 
 def plot_expectation_value(
-    result: SolenoidSimulationResult,
+    result: DiatomicSolenoidSimulationResult,
     idx: int,
     *,
     ax: Axes | None = None,
@@ -119,7 +122,7 @@ def plot_expectation_value(
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins[0])[idx, :]
+    expectation_values = get_expectation_values(result.spin)[idx, :]
 
     average_state_measure = np.average(expectation_values, axis=0)
     labels = [
@@ -159,7 +162,9 @@ def plot_expectation_value(
     return fig, ax
 
 
-def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_expectation_values(
+    result: DiatomicSolenoidSimulationResult,
+) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
 
     for idx, ax in enumerate(axes):
@@ -170,14 +175,14 @@ def plot_expectation_values(result: SolenoidSimulationResult) -> tuple[Figure, A
 
 
 def plot_expectation_phi(
-    result: SolenoidSimulationResult,
+    result: DiatomicSolenoidSimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins[0])
+    expectation_values = get_expectation_values(result.spin)
 
     wrapped_phi = np.arctan2(
         expectation_values[1, :], expectation_values[0, :]
@@ -214,14 +219,14 @@ def plot_expectation_phi(
 
 
 def plot_expectation_theta(
-    result: SolenoidSimulationResult,
+    result: DiatomicSolenoidSimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
     fig, ax = get_figure(ax)
 
     positions = result.positions
-    expectation_values = get_expectation_values(result.spins[0])
+    expectation_values = get_expectation_values(result.spin)
 
     wrapped_theta = np.arctan2(
         np.sqrt(expectation_values[0, :] ** 2 + expectation_values[1, :] ** 2),
@@ -258,7 +263,9 @@ def plot_expectation_theta(
     return fig, ax
 
 
-def plot_expectation_angles(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_expectation_angles(
+    result: DiatomicSolenoidSimulationResult,
+) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(10, 6))
 
     plot_expectation_theta(result, ax=ax)
@@ -270,12 +277,12 @@ def plot_expectation_angles(result: SolenoidSimulationResult) -> tuple[Figure, A
 
 
 def plot_expectation_trajectory(
-    trajectory: Trajectory,
+    trajectory: DiatomicTrajectory,
 ) -> tuple[Figure, Axes3D, Line2D]:
     fig = plt.figure(figsize=(6, 6))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = get_expectation_values(trajectory.spins[0])
+    expectations = get_expectation_values(trajectory.spin)
 
     # Plot the trajectory as a 3D curve
     (line,) = ax.plot(expectations[0, :], expectations[1, :], expectations[2, :])
@@ -286,12 +293,12 @@ def plot_expectation_trajectory(
 
 
 def plot_expectation_trajectories(
-    trajectories: TrajectoryList,
+    trajectories: DiatomicTrajectoryList,
 ) -> tuple[Figure, Axes3D]:
     fig = plt.figure(figsize=(8, 8))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
 
-    expectations = get_expectation_values(trajectories.spins[0])
+    expectations = get_expectation_values(trajectories.spin)
     # Average over samples (axis=1), shape: (3, n_positions)
     avg_expectations = np.average(expectations, axis=1)
 

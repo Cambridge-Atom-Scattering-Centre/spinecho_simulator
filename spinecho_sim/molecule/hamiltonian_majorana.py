@@ -58,6 +58,7 @@ def zeeman_hamiltonian_majorana(
             )
             operator_list[j_index] = identity
 
+    hamiltonian.eliminate_zeros()
     return hamiltonian
 
 
@@ -77,6 +78,7 @@ def spin_rotational_block_majorana(*, n_i: int, n_j: int, c: float) -> sp.csr_ma
                 )
                 operator_list[i_index] = identity
                 operator_list[j_index] = identity
+    hamiltonian.eliminate_zeros()
     return hamiltonian
 
 
@@ -117,7 +119,7 @@ def quadrupole_block_majorana(n_i: int, n_j: int, d: float) -> sp.csr_matrix:
     i_dot_j = reduce(csr_add, map(sparse_matmul, i_alpha, j_alpha))
 
     # (I⋅J)^2 ---------------------------------------------------------------
-    ij_sq = sparse_matmul(i_dot_j, i_dot_j)  # sparse-sparse matmul → CSR
+    ij_sq = sparse_matmul(i_dot_j, i_dot_j)
 
     # I² and J² -----------------------------------------------------------
     i_sq = reduce(csr_add, map(sparse_matmul, i_alpha, i_alpha))
