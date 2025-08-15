@@ -254,6 +254,20 @@ class StateVectorTrajectory(Trajectory):
             parallel_velocity=trajectory.parallel_velocity,
         )
 
+    @property
+    @override
+    def spin(self) -> Spin[tuple[int, int]]:
+        """The spin components are not directly accessible in state vector representation."""
+        msg = "Spin components are not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @property
+    @override
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int]]:
+        """The rotational angular momentum is not directly accessible in state vector representation."""
+        msg = "Rotational angular momentum is not available in state vector representation."
+        raise NotImplementedError(msg)
+
     @override
     def __len__(self) -> int:
         return self.state_vectors.shape[0]
@@ -445,7 +459,7 @@ class MonatomicTrajectoryList(TrajectoryList):
             )
 
 
-class StateVectorTrajectoryList(Sequence[StateVectorTrajectory]):
+class StateVectorTrajectoryList(TrajectoryList):
     """A list of state vector trajectories."""
 
     state_vectors: np.ndarray[
@@ -517,6 +531,18 @@ class StateVectorTrajectoryList(Sequence[StateVectorTrajectory]):
     @override
     def __len__(self) -> int:
         return self.state_vectors.shape[0]
+
+    @property
+    @override
+    def spin(self) -> Spin[tuple[int, int, int]]:
+        msg = "Spin components are not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @property
+    @override
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
+        msg = "Rotational angular momentum is not available in state vector representation."
+        raise NotImplementedError(msg)
 
     @overload
     def __getitem__(self, index: int) -> StateVectorTrajectory: ...

@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Any, override
 import numpy as np
 from tqdm import tqdm
 
+from spinecho_sim.molecule import diatomic_hamiltonian_dicke
 from spinecho_sim.state import (
+    EmptySpinList,
     EmptySpinListList,
     MonatomicParticleState,
     MonatomicTrajectory,
@@ -17,20 +19,18 @@ from spinecho_sim.state import (
     ParticleDisplacementList,
     ParticleState,
     Spin,
+    StateVectorTrajectory,
+    StateVectorTrajectoryList,
     Trajectory,
     TrajectoryList,
 )
-from spinecho_sim.state._spin import EmptySpinList
-from spinecho_sim.state._state import (
-    CoherentMonatomicParticleState,
-)
-from spinecho_sim.util import solve_ivp_typed, timed
+from spinecho_sim.util import solve_ivp_typed, sparse_apply, timed
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from spinecho_sim.state._state import (
-        CoherentParticleState,
+        CoherentMonatomicParticleState,
     )
 
 
@@ -71,6 +71,49 @@ class MonatomicSolenoidTrajectory(SolenoidTrajectory):
 
 
 @dataclass(kw_only=True, frozen=True)
+class StateVectorSolenoidTrajectory(SolenoidTrajectory):
+    """Represents a trajectory in a solenoid using state vectors instead of spins."""
+
+    trajectory: StateVectorTrajectory
+    positions: np.ndarray[Any, np.dtype[np.floating]]
+
+    @property
+    def state_vectors(self) -> np.ndarray[tuple[int, int], np.dtype[np.complex128]]:
+        """Get the state vectors from the trajectory."""
+        return self.trajectory.state_vectors
+
+    @property
+    def hilbert_space_dims(self) -> tuple[int, int]:
+        """Get the Hilbert space dimensions of the state vectors."""
+        return self.trajectory.hilbert_space_dims
+
+    @property
+    @override
+    def spin(self) -> Spin[tuple[int, int]]:
+        msg = "Spin components are not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @property
+    @override
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int]]:
+        msg = "Rotational angular momentum is not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @staticmethod
+    def from_solenoid_trajectory(
+        solenoid_trajectory: SolenoidTrajectory,
+        hilbert_space_dims: tuple[int, int],
+    ) -> StateVectorSolenoidTrajectory:
+        """Create a StateVectorSolenoidTrajectory from a SolenoidTrajectory."""
+        return StateVectorSolenoidTrajectory(
+            trajectory=StateVectorTrajectory.from_trajectory(
+                solenoid_trajectory.trajectory, hilbert_space_dims
+            ),
+            positions=solenoid_trajectory.positions,
+        )
+
+
+@dataclass(kw_only=True, frozen=True)
 class SolenoidSimulationResult:
     """Represents the result of a solenoid simulation."""
 
@@ -99,6 +142,60 @@ class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
     @override
     def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
         return EmptySpinListList(self.spin.shape)
+
+
+@dataclass(kw_only=True, frozen=True)
+class StateVectorSolenoidSimulationResult(SolenoidSimulationResult):
+    """Represents the result of a solenoid simulation using state vectors."""
+
+    trajectories: StateVectorTrajectoryList
+    positions: np.ndarray[Any, np.dtype[np.floating]]
+
+    @property
+    def state_vectors(
+        self,
+    ) -> np.ndarray[tuple[int, int, int], np.dtype[np.complex128]]:
+        """Get the state vectors from the trajectories."""
+        return self.trajectories.state_vectors
+
+    @property
+    def hilbert_space_dims(self) -> tuple[int, int]:
+        """Get the Hilbert space dimensions of the state vectors."""
+        return self.trajectories.hilbert_space_dims
+
+    @property
+    @override
+    def spin(self) -> Spin[tuple[int, int, int]]:
+        msg = "Spin components are not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @property
+    @override
+    def rotational_angular_momentum(self) -> Spin[tuple[int, int, int]]:
+        msg = "Rotational angular momentum is not available in state vector representation."
+        raise NotImplementedError(msg)
+
+    @staticmethod
+    def from_simulation_result(
+        result: SolenoidSimulationResult,
+        hilbert_space_dims: tuple[int, int],
+    ) -> StateVectorSolenoidSimulationResult:
+        """Convert a regular SolenoidSimulationResult to a StateVectorSolenoidSimulationResult."""
+        # Create state vector trajectories from regular trajectories
+        state_vector_trajectories: list[StateVectorTrajectory] = []
+        for i in range(len(result.trajectories)):
+            trajectory = result.trajectories[i]
+            sv_trajectory = StateVectorTrajectory.from_trajectory(
+                trajectory, hilbert_space_dims
+            )
+            state_vector_trajectories.append(sv_trajectory)
+
+        return StateVectorSolenoidSimulationResult(
+            trajectories=StateVectorTrajectoryList.from_state_vector_trajectories(
+                state_vector_trajectories
+            ),
+            positions=result.positions,
+        )
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -131,22 +228,38 @@ class Solenoid:
             strength=lambda z: b_z * np.sin(np.pi * z / length) ** 2,
         )
 
-    def _simulate_coherent_trajectory(
-        self,
-        initial_state: CoherentParticleState,
-        n_steps: int = 100,
-    ) -> tuple[
-        np.ndarray[Any, np.dtype[np.floating]],
-        np.ndarray[Any, np.dtype[np.floating]],
-    ]:
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
-
     def simulate_trajectory(
         self,
         initial_state: ParticleState,
         n_steps: int = 100,
-    ) -> MonatomicSolenoidTrajectory:
+    ) -> SolenoidTrajectory:
+        i = initial_state.spin.size / 2 - 1
+        j = initial_state.rotational_angular_momentum.size / 2 - 1
+
+        z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
+
+        def schrodinger_eq(z: float, psi: np.ndarray) -> np.ndarray:
+            field = _get_field(z, initial_state.displacement, self)
+            b_vec = (field[0], field[1], field[2])
+            hamiltonian = diatomic_hamiltonian_dicke(
+                i, j, initial_state.coefficients, b_vec
+            )
+            result = sparse_apply(hamiltonian, psi)
+            return -1j * result
+
+        psi0: np.ndarray[tuple[int], np.dtype[Any]] = np.kron(
+            initial_state.spin.momentum_states,
+            initial_state.rotational_angular_momentum.momentum_states,
+        )
+
+        solve_ivp_typed(
+            fun=schrodinger_eq,
+            t_span=(z_points[0], z_points[-1]),
+            y0=psi0,
+            t_eval=z_points,
+            rtol=1e-8,
+        )
+
         msg = "Diatomic solenoid simulation not implemented."
         raise NotImplementedError(msg)
 
@@ -155,9 +268,18 @@ class Solenoid:
         self,
         initial_states: Sequence[ParticleState],
         n_steps: int = 100,
-    ) -> MonatomicSolenoidSimulationResult:
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
+    ) -> SolenoidSimulationResult:
+        """Run a solenoid simulation for multiple initial states."""
+        z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
+        return SolenoidSimulationResult(
+            trajectories=TrajectoryList.from_trajectories(
+                [
+                    self.simulate_trajectory(state, n_steps).trajectory
+                    for state in tqdm(initial_states, desc="Simulating Trajectories")
+                ]
+            ),
+            positions=z_points,
+        )
 
 
 def _get_field(
@@ -190,19 +312,14 @@ def _get_field(
 
 @dataclass(kw_only=True, frozen=True)
 class MonatomicSolenoid(Solenoid):
-    @override
     def _simulate_coherent_trajectory(
         self,
-        initial_state: CoherentParticleState,
+        initial_state: CoherentMonatomicParticleState,
         n_steps: int = 100,
     ) -> tuple[
         np.ndarray[Any, np.dtype[np.floating]],
         np.ndarray[Any, np.dtype[np.floating]],
     ]:
-        assert isinstance(initial_state, CoherentMonatomicParticleState), (
-            "Expected a coherent monatomic particle state."
-        )
-
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         gyromagnetic_ratio = initial_state.gyromagnetic_ratio
@@ -244,7 +361,7 @@ class MonatomicSolenoid(Solenoid):
             vectorized=False,
             rtol=1e-8,
         )
-        return np.array(sol.y)[0], np.array(sol.y)[1]
+        return sol.y[0], sol.y[1]
 
     @override
     def simulate_trajectory(
@@ -292,7 +409,7 @@ class MonatomicSolenoid(Solenoid):
 
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
         return MonatomicSolenoidSimulationResult(
-            trajectories=MonatomicTrajectoryList.from_trajectories(
+            trajectories=MonatomicTrajectoryList.from_monatomic_trajectories(
                 [
                     self.simulate_trajectory(state, n_steps).trajectory
                     for state in tqdm(

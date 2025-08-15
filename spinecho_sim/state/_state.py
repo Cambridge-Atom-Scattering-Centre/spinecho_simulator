@@ -112,14 +112,14 @@ class StateVectorParticleState(ParticleState):
     @property
     @override
     def spin(self) -> GenericSpin:
-        """Get the spin representation (for compatibility with the original API)."""
-        raise NotImplementedError
+        msg = "StateVectorParticleState does not use Spin representations."
+        raise NotImplementedError(msg)
 
     @property
     @override
     def rotational_angular_momentum(self) -> GenericSpin:
-        """Get the rotational angular momentum (for compatibility with the original API)."""
-        return EmptySpin()  # No Spin representation, use EmptySpin
+        msg = "StateVectorParticleState does not use Spin representations."
+        raise NotImplementedError(msg)
 
     @staticmethod
     def from_spin_state(state: ParticleState) -> StateVectorParticleState:
