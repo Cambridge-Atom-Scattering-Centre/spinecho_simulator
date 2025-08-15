@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from abc import abstractmethod
 from dataclasses import dataclass, field
-from itertools import product
 from typing import TYPE_CHECKING, override
+
+import numpy as np
 
 from spinecho_sim.state._displacement import ParticleDisplacement
 from spinecho_sim.state._spin import EmptySpin
@@ -22,6 +22,7 @@ class ParticleState:
     parallel_velocity: float
     _spin_angular_momentum: GenericSpin
     _rotational_angular_momentum: GenericSpin
+    coefficients: tuple[float, float, float, float] = (4.258, 0.6717, 113.8, 57.68)
 
     @property
     def spin(self) -> GenericSpin:
@@ -31,44 +32,17 @@ class ParticleState:
     def rotational_angular_momentum(self) -> GenericSpin:
         return self._rotational_angular_momentum
 
-    @abstractmethod
-    def as_coherent(self) -> Sequence[CoherentParticleState]:
-        return [
-            CoherentParticleState(
-                _spin_angular_momentum=spin.as_generic(),
-                _rotational_angular_momentum=rot.as_generic(),
-                displacement=self.displacement,
-                parallel_velocity=self.parallel_velocity,
-            )
-            for spin, rot in product(
-                self._spin_angular_momentum.flat_iter(),
-                self._rotational_angular_momentum.flat_iter(),
-            )
-        ]
-
-
-@dataclass(frozen=True, kw_only=True)
-class CoherentParticleState(ParticleState):
-    def __post_init__(self) -> None:
-        assert self.spin.size == 1
-        assert self.rotational_angular_momentum.size == 1
-
 
 @dataclass(frozen=True, kw_only=True)
 class MonatomicParticleState(ParticleState):
     gyromagnetic_ratio: float = -2.04e8  # default value for 3He
-    _rotational_angular_momentum: EmptySpin = field(init=False)
-
-    def __post_init__(self) -> None:
-        """Automatically set rotational angular momentum to an EmptySpin with the same shape as spin."""
-        object.__setattr__(self, "_rotational_angular_momentum", EmptySpin())
+    _rotational_angular_momentum: EmptySpin = field(init=False, default=EmptySpin())
 
     @property
     @override
     def spin(self) -> GenericSpin:
         return self._spin_angular_momentum
 
-    @override
     def as_coherent(self) -> Sequence[CoherentMonatomicParticleState]:
         return [
             CoherentMonatomicParticleState(
@@ -87,18 +61,79 @@ class MonatomicParticleState(ParticleState):
 
 
 @dataclass(frozen=True, kw_only=True)
-class CoherentMonatomicParticleState(MonatomicParticleState, CoherentParticleState):
-    _rotational_angular_momentum: EmptySpin = field(init=False)
+class CoherentMonatomicParticleState(MonatomicParticleState):
+    _rotational_angular_momentum: EmptySpin = field(init=False, default=EmptySpin())
 
     def __post_init__(self) -> None:
+        assert self.spin.size == 1, (
+            "CoherentParticleState must represent a single coherent spin."
+        )
+        assert self.rotational_angular_momentum.size == 1, (
+            "CoherentParticleState must represent a single coherent spin."
+        )
         assert self._spin_angular_momentum.size == 1, (
             "CoherentParticleState must represent a single coherent spin."
         )
-        """Automatically set rotational angular momentum to an EmptySpin with the same shape as spin."""
-        object.__setattr__(self, "_rotational_angular_momentum", EmptySpin())
+
+
+class StateVectorParticleState(ParticleState):
+    """Particle state that directly uses state vector arrays instead of Spin classes."""
+
+    # Override these fields with None to prevent initialization
+    _spin_angular_momentum: GenericSpin = field(init=False, default=EmptySpin())
+    _rotational_angular_momentum: GenericSpin = field(init=False, default=EmptySpin())
+
+    state_vector: np.ndarray[tuple[int], np.dtype[np.complex128]]
+    hilbert_space_dims: tuple[int, int]  # Dimensions of the subsystems
+    displacement: ParticleDisplacement
+    parallel_velocity: float
+
+    def __init__(
+        self,
+        state_vector: np.ndarray[tuple[int], np.dtype[np.complex128]],
+        hilbert_space_dims: tuple[int, int],
+        displacement: ParticleDisplacement,
+        parallel_velocity: float,
+    ) -> None:
+        self.state_vector = state_vector
+        self.hilbert_space_dims = hilbert_space_dims
+        self.displacement = displacement
+        self.parallel_velocity = parallel_velocity
+        normalized_vector = self.state_vector / np.linalg.norm(self.state_vector)
+        object.__setattr__(self, "state_vector", normalized_vector)
+        expected_dim = np.prod(self.hilbert_space_dims)
+        if self.state_vector.size != expected_dim:
+            msg = (
+                f"State vector size {self.state_vector.size} doesn't match "
+                f"the expected dimension {expected_dim} from hilbert_space_dims {self.hilbert_space_dims}"
+            )
+            raise ValueError(msg)
+
+    @property
+    @override
+    def spin(self) -> GenericSpin:
+        """Get the spin representation (for compatibility with the original API)."""
+        raise NotImplementedError
 
     @property
     @override
     def rotational_angular_momentum(self) -> GenericSpin:
-        """Ensure rotational_angular_momentum uses MonatomicParticleState's implementation."""
-        return super(MonatomicParticleState, self).rotational_angular_momentum
+        """Get the rotational angular momentum (for compatibility with the original API)."""
+        return EmptySpin()  # No Spin representation, use EmptySpin
+
+    @staticmethod
+    def from_spin_state(state: ParticleState) -> StateVectorParticleState:
+        """Create a StateVectorParticleState from a traditional ParticleState."""
+        state_vector = np.kron(
+            state.spin.momentum_states,
+            state.rotational_angular_momentum.momentum_states,
+        ).astype(np.complex128)  # Explicitly cast to complex128
+        return StateVectorParticleState(
+            state_vector=state_vector,
+            hilbert_space_dims=(
+                state.spin.size,
+                state.rotational_angular_momentum.size,
+            ),
+            displacement=state.displacement,
+            parallel_velocity=state.parallel_velocity,
+        )

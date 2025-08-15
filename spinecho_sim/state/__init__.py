@@ -37,10 +37,13 @@ from spinecho_sim.state._spin import (
 from spinecho_sim.state._state import (
     MonatomicParticleState,
     ParticleState,
+    StateVectorParticleState,
 )
 from spinecho_sim.state._trajectory import (
     MonatomicTrajectory,
     MonatomicTrajectoryList,
+    StateVectorTrajectory,
+    StateVectorTrajectoryList,
     Trajectory,
     TrajectoryList,
 )
@@ -60,6 +63,9 @@ __all__ = [
     "ParticleDisplacementList",
     "ParticleState",
     "Spin",
+    "StateVectorParticleState",
+    "StateVectorTrajectory",
+    "StateVectorTrajectoryList",
     "Trajectory",
     "TrajectoryList",
     "get_bargmann_expectation_values",
