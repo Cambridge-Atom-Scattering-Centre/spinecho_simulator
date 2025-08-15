@@ -8,8 +8,12 @@ from spinecho_sim.molecule.hamiltonian_dicke import (
 from spinecho_sim.molecule.hamiltonian_majorana import (
     diatomic_hamiltonian_majorana,
 )
+from spinecho_sim.molecule.molecule_sim import (
+    evolve_quantum_state,
+)
 
 __all__ = [
     "diatomic_hamiltonian_dicke",
     "diatomic_hamiltonian_majorana",
+    "evolve_quantum_state",
 ]
