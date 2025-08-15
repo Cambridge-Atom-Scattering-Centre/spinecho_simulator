@@ -19,6 +19,7 @@ from spinecho_sim.state import (
     ParticleDisplacementList,
     ParticleState,
     Spin,
+    StateVectorParticleState,
     StateVectorTrajectory,
     StateVectorTrajectoryList,
     Trajectory,
@@ -233,6 +234,7 @@ class Solenoid:
         initial_state: ParticleState,
         n_steps: int = 100,
     ) -> SolenoidTrajectory:
+        assert isinstance(initial_state, StateVectorParticleState)
         i = initial_state.spin.size / 2 - 1
         j = initial_state.rotational_angular_momentum.size / 2 - 1
 
@@ -247,12 +249,12 @@ class Solenoid:
             result = sparse_apply(hamiltonian, psi)
             return -1j * result
 
-        psi0: np.ndarray[tuple[int], np.dtype[Any]] = np.kron(
+        psi0: np.ndarray[tuple[int], np.dtype[np.complex128]] = np.kron(
             initial_state.spin.momentum_states,
             initial_state.rotational_angular_momentum.momentum_states,
-        )
+        ).astype(np.complex128)
 
-        solve_ivp_typed(
+        sol = solve_ivp_typed(
             fun=schrodinger_eq,
             t_span=(z_points[0], z_points[-1]),
             y0=psi0,
@@ -260,8 +262,19 @@ class Solenoid:
             rtol=1e-8,
         )
 
-        msg = "Diatomic solenoid simulation not implemented."
-        raise NotImplementedError(msg)
+        state_vectors: np.ndarray[tuple[int, int], np.dtype[np.complex128]] = (
+            np.transpose(sol.y).astype(np.complex128)
+        )
+
+        return StateVectorSolenoidTrajectory(
+            trajectory=StateVectorTrajectory(
+                state_vectors=state_vectors,
+                hilbert_space_dims=initial_state.hilbert_space_dims,
+                displacement=initial_state.displacement,
+                parallel_velocity=initial_state.parallel_velocity,
+            ),
+            positions=z_points,
+        )
 
     @timed
     def simulate_trajectories(
