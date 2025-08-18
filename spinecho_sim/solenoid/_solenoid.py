@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, override
 
@@ -254,10 +255,11 @@ class Solenoid:
                 i, j, initial_state.coefficients, field
             )
             assert verify_hermitian(hamiltonian), "Hamiltonian is not Hermitian"
-            result = sparse_apply(hamiltonian, psi / np.linalg.norm(psi))
+            result = sparse_apply(hamiltonian, psi)
+            psi /= np.linalg.norm(psi)  # Ensures state remains normalized
             return -1j * result / initial_state.parallel_velocity
 
-        psi0 = initial_state.state_vector
+        psi0 = initial_state.state_vector.copy()
 
         sol = solve_ivp_typed(
             fun=schrodinger_eq,
@@ -270,6 +272,15 @@ class Solenoid:
         state_vectors: np.ndarray[tuple[int, int], np.dtype[np.complex128]] = (
             np.transpose(sol.y).astype(np.complex128)
         )
+
+        for idx, psi in enumerate(state_vectors):
+            norm = np.linalg.norm(psi)
+            if not np.isclose(norm, 1.0, atol=1e-8):
+                warnings.warn(
+                    f"State vector at index {idx} is not normalized: norm = {norm}",
+                    UserWarning,
+                    stacklevel=2,
+                )
 
         return StateVectorSolenoidTrajectory(
             trajectory=StateVectorTrajectory(
