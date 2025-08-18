@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.colors import LinearSegmentedColormap, TwoSlopeNorm
+from matplotlib.colors import Normalize
 
 from spinecho_sim.molecule import (
     diatomic_hamiltonian_dicke,
@@ -15,13 +15,6 @@ from spinecho_sim.util import to_array
 
 if TYPE_CHECKING:
     import scipy.sparse as sp  # pyright: ignore[reportMissingTypeStubs]
-
-# Original colormap
-original_cmap = plt.get_cmap("bwr")
-# Crop to the first half
-cropped_cmap = LinearSegmentedColormap.from_list(
-    "cropped_bwr", original_cmap(np.linspace(0.5, 1, 256))
-)
 
 
 def compute_sparsity(hamiltonian: sp.csr_matrix) -> tuple[int, int, float]:
@@ -58,7 +51,7 @@ def compare_sparsity(
 
             # Dicke Hamiltonian
             dicke_hamiltonian = diatomic_hamiltonian_dicke(
-                i=i, j=j, coefficients=coefficients, b_vec=b_vec
+                i=i, j=j, coefficients=coefficients, b_vec=np.array(b_vec)
             )
             dicke_metrics = compute_sparsity(dicke_hamiltonian)
 
@@ -80,6 +73,7 @@ def generate_heatmaps(
     results: list[Result],
     i_values: list[float],
     j_values: list[float],
+    normalize_to: str = "lowest",  # "lowest" or "highest"
 ) -> None:
     """Generate heatmaps for differences in nnz, size, and sparsity."""
     nnz_diff = np.zeros((len(i_values), len(j_values)))
@@ -94,7 +88,7 @@ def generate_heatmaps(
         size_diff[i_idx, j_idx] = result.majorana[1] - result.dicke[1]
         sparsity_diff[i_idx, j_idx] = result.majorana[2] - result.dicke[2]
 
-    # Plot heatmaps (unchanged)
+    # Plot heatmaps
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
 
     for ax in axes:
@@ -105,27 +99,44 @@ def generate_heatmaps(
         ax.set_yticks(range(len(i_values)))
         ax.set_yticklabels(i_values)
 
+    # Normalize NNZ Difference Heatmap
+    if normalize_to == "lowest":
+        vmin_nnz = 0
+        vmax_nnz = nnz_diff.max()
+    else:  # normalize_to == "highest"
+        vmin_nnz = nnz_diff.min()
+        vmax_nnz = 0
+    norm_nnz = Normalize(vmin=vmin_nnz, vmax=vmax_nnz)
     im1 = axes[0].imshow(
-        np.log10(nnz_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
+        nnz_diff, cmap="viridis", norm=norm_nnz, origin="lower", aspect="auto"
     )
-    axes[0].set_title(r"log$_{10}$ [NNZ Difference (Majorana - Dicke)]")
+    axes[0].set_title("NNZ Difference (Majorana - Dicke)")
     fig.colorbar(im1, ax=axes[0])
 
+    # Normalize Size Difference Heatmap
+    if normalize_to == "lowest":
+        vmin_size = 0
+        vmax_size = size_diff.max()
+    else:  # normalize_to == "highest"
+        vmin_size = size_diff.min()
+        vmax_size = 0
+    norm_size = Normalize(vmin=vmin_size, vmax=vmax_size)
     im2 = axes[1].imshow(
-        np.log10(size_diff), cmap=cropped_cmap, origin="lower", aspect="auto"
+        size_diff, cmap="viridis", norm=norm_size, origin="lower", aspect="auto"
     )
-    axes[1].set_title(r"log$_{10}$ [Size Difference (Majorana - Dicke)]")
+    axes[1].set_title("Size Difference (Majorana - Dicke)")
     fig.colorbar(im2, ax=axes[1])
 
-    norm_sparsity = TwoSlopeNorm(
-        vmin=sparsity_diff.min(), vcenter=0, vmax=sparsity_diff.max()
-    )
+    # Normalize Sparsity Difference Heatmap
+    if normalize_to == "lowest":
+        vmin_sparsity = 0
+        vmax_sparsity = sparsity_diff.max()
+    else:  # normalize_to == "highest"
+        vmin_sparsity = sparsity_diff.min()
+        vmax_sparsity = 0
+    norm_sparsity = Normalize(vmin=vmin_sparsity, vmax=vmax_sparsity)
     im3 = axes[2].imshow(
-        sparsity_diff,
-        cmap="bwr",
-        norm=norm_sparsity,
-        origin="lower",
-        aspect="auto",
+        sparsity_diff, cmap="viridis", norm=norm_sparsity, origin="lower", aspect="auto"
     )
     axes[2].set_title("Sparsity Difference (Majorana - Dicke)")
     fig.colorbar(im3, ax=axes[2])

@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from spinecho_sim.solenoid._plot import (
-    plot_expectation_angles,
-    plot_expectation_trajectories,
-    plot_expectation_trajectory,
-    plot_expectation_values,
-    plot_spin_states,
+from spinecho_sim.solenoid._diatomic_plot import (
+    plot_diatomic_expectation_values,
+)
+from spinecho_sim.solenoid._monatomic_plot import (
+    plot_monatomic_expectation_angles,
+    plot_monatomic_expectation_trajectories,
+    plot_monatomic_expectation_trajectory,
+    plot_monatomic_expectation_values,
+    plot_monatomic_spin_states,
 )
 from spinecho_sim.solenoid._solenoid import (
     MonatomicSolenoid,
@@ -25,9 +28,10 @@ __all__ = [
     "Solenoid",
     "SolenoidSimulationResult",
     "SolenoidTrajectory",
-    "plot_expectation_angles",
-    "plot_expectation_trajectories",
-    "plot_expectation_trajectory",
-    "plot_expectation_values",
-    "plot_spin_states",
+    "plot_diatomic_expectation_values",
+    "plot_monatomic_expectation_angles",
+    "plot_monatomic_expectation_trajectories",
+    "plot_monatomic_expectation_trajectory",
+    "plot_monatomic_expectation_values",
+    "plot_monatomic_spin_states",
 ]

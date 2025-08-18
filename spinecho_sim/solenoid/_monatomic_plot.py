@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     )
 
 
-def plot_spin_state(
+def plot_monatomic_spin_state(
     result: SolenoidSimulationResult,
     idx: int,
     *,
@@ -77,7 +77,7 @@ def plot_spin_state(
     return fig, ax
 
 
-def plot_state_intensity(
+def plot_monatomic_state_intensity(
     result: SolenoidSimulationResult, idx: int, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
     fig, ax = get_figure(ax)
@@ -100,20 +100,20 @@ def plot_state_intensity(
     return fig, ax, line
 
 
-def plot_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_monatomic_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
     n_stars = result.spin.n_stars
     fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
     for idx, (ax_abs, ax_arg) in enumerate(axes):
-        plot_spin_state(result, idx, measure="abs", ax=ax_abs)
-        plot_spin_state(result, idx, measure="arg", ax=ax_arg)
+        plot_monatomic_spin_state(result, idx, measure="abs", ax=ax_abs)
+        plot_monatomic_spin_state(result, idx, measure="arg", ax=ax_arg)
     for ax in axes[-1]:
         ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes
 
 
-def plot_expectation_value(
+def plot_monatomic_expectation_value(
     result: SolenoidSimulationResult,
     idx: int,
     *,
@@ -162,19 +162,19 @@ def plot_expectation_value(
     return fig, ax
 
 
-def plot_expectation_values(
+def plot_monatomic_expectation_values(
     result: SolenoidSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
 
     for idx, ax in enumerate(axes):
-        plot_expectation_value(result, idx, ax=ax)
+        plot_monatomic_expectation_value(result, idx, ax=ax)
     axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes
 
 
-def plot_expectation_phi(
+def plot_monatomic_expectation_phi(
     result: SolenoidSimulationResult,
     *,
     ax: Axes | None = None,
@@ -218,7 +218,7 @@ def plot_expectation_phi(
     return fig, ax
 
 
-def plot_expectation_theta(
+def plot_monatomic_expectation_theta(
     result: SolenoidSimulationResult,
     *,
     ax: Axes | None = None,
@@ -263,20 +263,20 @@ def plot_expectation_theta(
     return fig, ax
 
 
-def plot_expectation_angles(
+def plot_monatomic_expectation_angles(
     result: SolenoidSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(10, 6))
 
-    plot_expectation_theta(result, ax=ax)
-    plot_expectation_phi(result, ax=ax.twinx())
+    plot_monatomic_expectation_theta(result, ax=ax)
+    plot_monatomic_expectation_phi(result, ax=ax.twinx())
     ax.set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
 
     return fig, ax
 
 
-def plot_expectation_trajectory(
+def plot_monatomic_expectation_trajectory(
     trajectory: Trajectory,
 ) -> tuple[Figure, Axes3D, Line2D]:
     fig = plt.figure(figsize=(6, 6))
@@ -292,7 +292,7 @@ def plot_expectation_trajectory(
     return fig, ax, line
 
 
-def plot_expectation_trajectories(
+def plot_monatomic_expectation_trajectories(
     trajectories: TrajectoryList,
 ) -> tuple[Figure, Axes3D]:
     fig = plt.figure(figsize=(8, 8))
@@ -312,7 +312,7 @@ def plot_expectation_trajectories(
     average_line.set_label(r"$\overline{\langle \mathbf{S} \rangle}$")
     color = average_line.get_color()
     for trajectory in trajectories:
-        _, _, line = plot_expectation_trajectory(trajectory)
+        _, _, line = plot_monatomic_expectation_trajectory(trajectory)
         line.set_alpha(0.1)
         line.set_color(color)
 

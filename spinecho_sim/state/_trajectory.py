@@ -167,9 +167,6 @@ class StateVectorTrajectory(Trajectory):
     ]  # [timestep, state_vector_element]
     hilbert_space_dims: tuple[int, int]  # Dimensions of the subsystems
 
-    displacement: ParticleDisplacement
-    parallel_velocity: float
-
     def __init__(
         self,
         state_vectors: np.ndarray[tuple[int, int], np.dtype[np.complex128]],
@@ -177,10 +174,15 @@ class StateVectorTrajectory(Trajectory):
         displacement: ParticleDisplacement,
         parallel_velocity: float,
     ) -> None:
-        self.state_vectors = state_vectors
+        # Normalize each state vector
+        normalized_vectors = np.zeros_like(state_vectors)
+        for i, state in enumerate(state_vectors):
+            normalized_vectors[i] = state / np.linalg.norm(state)
+
+        self.state_vectors = normalized_vectors
         self.hilbert_space_dims = hilbert_space_dims
-        self.displacement = displacement
-        self.parallel_velocity = parallel_velocity
+        object.__setattr__(self, "displacement", displacement)
+        object.__setattr__(self, "parallel_velocity", parallel_velocity)
 
         expected_dim = np.prod(self.hilbert_space_dims)
 
@@ -191,19 +193,6 @@ class StateVectorTrajectory(Trajectory):
                 f"the expected dimension {expected_dim} from hilbert_space_dims {self.hilbert_space_dims}"
             )
             raise ValueError(msg)
-
-        # Normalize each state vector
-        normalized_vectors = np.zeros_like(self.state_vectors)
-        for i, state in enumerate(self.state_vectors):
-            normalized_vectors[i] = state / np.linalg.norm(state)
-
-        self.state_vectors = normalized_vectors
-
-        # Initialize empty spins for compatibility with parent class
-        self._spin_angular_momentum = EmptySpinList((self.state_vectors.shape[0], 0))
-        self._rotational_angular_momentum = EmptySpinList(
-            (self.state_vectors.shape[0], 0)
-        )
 
     @staticmethod
     def from_state_vector_states(
@@ -466,8 +455,6 @@ class StateVectorTrajectoryList(TrajectoryList):
         tuple[int, int, int], np.dtype[np.complex128]
     ]  # [trajectory, timestep, state_vector_element]
     hilbert_space_dims: tuple[int, int]  # [nuclear, rotational]
-    displacements: ParticleDisplacementList
-    parallel_velocities: np.ndarray[Any, np.dtype[np.floating]]
 
     def __init__(
         self,
@@ -478,8 +465,8 @@ class StateVectorTrajectoryList(TrajectoryList):
     ) -> None:
         self.state_vectors = state_vectors
         self.hilbert_space_dims = hilbert_space_dims
-        self.displacements = displacements
-        self.parallel_velocities = parallel_velocities
+        object.__setattr__(self, "displacements", displacements)
+        object.__setattr__(self, "parallel_velocities", parallel_velocities)
 
         if (
             self.parallel_velocities.ndim != 1

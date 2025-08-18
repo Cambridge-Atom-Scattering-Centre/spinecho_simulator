@@ -25,7 +25,7 @@ from spinecho_sim.state import (
     Trajectory,
     TrajectoryList,
 )
-from spinecho_sim.util import solve_ivp_typed, sparse_apply, timed
+from spinecho_sim.util import solve_ivp_typed, sparse_apply, timed, verify_hermitian
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -234,25 +234,30 @@ class Solenoid:
         initial_state: ParticleState,
         n_steps: int = 100,
     ) -> SolenoidTrajectory:
-        assert isinstance(initial_state, StateVectorParticleState)
-        i = initial_state.spin.size / 2 - 1
-        j = initial_state.rotational_angular_momentum.size / 2 - 1
+        raise NotImplementedError
+
+    def simulate_diatomic_trajectory(
+        self,
+        initial_state: StateVectorParticleState,
+        n_steps: int = 100,
+    ) -> StateVectorSolenoidTrajectory:
+        i = (initial_state.hilbert_space_dims[0] - 1) / 2
+        j = (initial_state.hilbert_space_dims[1] - 1) / 2  # dim=2j+1
+        assert i > 1 / 2, "Invalid diatomic spin state: i must be > 1/2"
+        assert j > 1 / 2, "Invalid diatomic spin state: j must be > 1/2"
 
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         def schrodinger_eq(z: float, psi: np.ndarray) -> np.ndarray:
             field = _get_field(z, initial_state.displacement, self)
-            b_vec = (field[0], field[1], field[2])
             hamiltonian = diatomic_hamiltonian_dicke(
-                i, j, initial_state.coefficients, b_vec
+                i, j, initial_state.coefficients, field
             )
-            result = sparse_apply(hamiltonian, psi)
-            return -1j * result
+            assert verify_hermitian(hamiltonian), "Hamiltonian is not Hermitian"
+            result = sparse_apply(hamiltonian, psi / np.linalg.norm(psi))
+            return -1j * result / initial_state.parallel_velocity
 
-        psi0: np.ndarray[tuple[int], np.dtype[np.complex128]] = np.kron(
-            initial_state.spin.momentum_states,
-            initial_state.rotational_angular_momentum.momentum_states,
-        ).astype(np.complex128)
+        psi0 = initial_state.state_vector
 
         sol = solve_ivp_typed(
             fun=schrodinger_eq,
@@ -282,12 +287,20 @@ class Solenoid:
         initial_states: Sequence[ParticleState],
         n_steps: int = 100,
     ) -> SolenoidSimulationResult:
+        raise NotImplementedError
+
+    @timed
+    def simulate_diatomic_trajectories(
+        self,
+        initial_states: Sequence[StateVectorParticleState],
+        n_steps: int = 100,
+    ) -> StateVectorSolenoidSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
-        return SolenoidSimulationResult(
-            trajectories=TrajectoryList.from_trajectories(
+        return StateVectorSolenoidSimulationResult(
+            trajectories=StateVectorTrajectoryList.from_state_vector_trajectories(
                 [
-                    self.simulate_trajectory(state, n_steps).trajectory
+                    self.simulate_diatomic_trajectory(state, n_steps).trajectory
                     for state in tqdm(initial_states, desc="Simulating Trajectories")
                 ]
             ),

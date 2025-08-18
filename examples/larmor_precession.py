@@ -5,7 +5,7 @@ import numpy as np
 
 from spinecho_sim.solenoid import (
     MonatomicSolenoid,
-    plot_expectation_trajectory,
+    plot_monatomic_expectation_trajectory,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -37,7 +37,7 @@ if __name__ == "__main__":
     S = n_stars / 2
     S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
 
-    fig, ax, _ = plot_expectation_trajectory(result.trajectory)
+    fig, ax, _ = plot_monatomic_expectation_trajectory(result.trajectory)
     fig.suptitle(
         r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
