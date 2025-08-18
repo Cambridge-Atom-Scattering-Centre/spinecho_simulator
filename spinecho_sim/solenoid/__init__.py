@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from spinecho_sim.solenoid._diatomic_plot import (
     plot_diatomic_expectation_values,
+    plot_diatomic_normalisation,
 )
 from spinecho_sim.solenoid._monatomic_plot import (
     plot_monatomic_expectation_angles,
@@ -29,6 +30,7 @@ __all__ = [
     "SolenoidSimulationResult",
     "SolenoidTrajectory",
     "plot_diatomic_expectation_values",
+    "plot_diatomic_normalisation",
     "plot_monatomic_expectation_angles",
     "plot_monatomic_expectation_trajectories",
     "plot_monatomic_expectation_trajectory",

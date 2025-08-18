@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 def plot_monatomic_expectation_value(
     result: StateVectorSolenoidSimulationResult,
     idx: int,
+    spin: Literal["I", "J"],
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
@@ -28,7 +29,23 @@ def plot_monatomic_expectation_value(
     i = (result.hilbert_space_dims[0] - 1) / 2
     j = (result.hilbert_space_dims[1] - 1) / 2
 
-    i_ops, _ = collective_ops_sparse(i, j)
+    if spin == "I":
+        ops, _ = collective_ops_sparse(i, j)
+    else:
+        _, ops = collective_ops_sparse(i, j)
+
+    if spin == "I":
+        labels = [
+            r"\langle I_x \rangle",
+            r"\langle I_y \rangle",
+            r"\langle I_z \rangle",
+        ]
+    else:
+        labels = [
+            r"\langle J_x \rangle",
+            r"\langle J_y \rangle",
+            r"\langle J_z \rangle",
+        ]
 
     positions = result.positions
     state_vectors = (
@@ -47,15 +64,10 @@ def plot_monatomic_expectation_value(
                 particle_idx, position_idx, :
             ]  # Extract the state vector
             expectation_values[particle_idx, position_idx] = np.real(
-                np.vdot(state, sparse_apply(i_ops[idx], state))
+                np.vdot(state, sparse_apply(ops[idx], state))
             )
 
     average_state_measure = np.average(expectation_values, axis=0)
-    labels = [
-        r"\langle I_x \rangle",
-        r"\langle I_y \rangle",
-        r"\langle I_z \rangle",
-    ]
 
     (measure_line,) = ax.plot(positions, average_state_measure)
     measure_line.set_label(rf"$\overline{{{labels[idx]}}} / \hbar$")
@@ -92,10 +104,35 @@ def plot_monatomic_expectation_value(
 def plot_diatomic_expectation_values(
     result: StateVectorSolenoidSimulationResult,
 ) -> tuple[Figure, Axes]:
-    fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
+    fig, axes = plt.subplots(3, 2, figsize=(12, 10), sharex=True)
 
-    for idx, ax in enumerate(axes):
-        plot_monatomic_expectation_value(result, idx, ax=ax)
-    axes[-1].set_xlabel(r"Distance $z$ along Solenoid Axis")
+    for idx in range(3):  # Iterate over the three expectation values (x, y, z)
+        # Plot I expectation values in the first column
+        plot_monatomic_expectation_value(result, idx, "I", ax=axes[idx, 0])
+        axes[idx, 0].set_title(rf"$\langle I_{['x', 'y', 'z'][idx]} \rangle$")
+
+        # Plot J expectation values in the second column
+        plot_monatomic_expectation_value(result, idx, "J", ax=axes[idx, 1])
+        axes[idx, 1].set_title(rf"$\langle J_{['x', 'y', 'z'][idx]} \rangle$")
+
+    # Set shared x-axis label for the bottom row
+    axes[-1, 0].set_xlabel(r"Distance $z$ along Solenoid Axis")
+    axes[-1, 1].set_xlabel(r"Distance $z$ along Solenoid Axis")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
+    return fig, axes
+
+
+def plot_diatomic_normalisation(
+    result: StateVectorSolenoidSimulationResult,
+) -> tuple[Figure, Axes]:
+    fig, axes = plt.subplots(1, 1, figsize=(10, 6))
+
+    for particle_idx in range(result.state_vectors.shape[0]):
+        state = result.state_vectors[particle_idx]
+        norm = np.linalg.norm(state, axis=1)
+        axes.plot(result.positions, norm)
+
+    axes.set_ylabel(r"Normalization $\|\psi\|$")
+    axes.set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes

@@ -17,7 +17,7 @@ from spinecho_sim.state import (
 
 if __name__ == "__main__":
     particle_velocity = 714
-    num_spins = 5
+    num_spins = 1
     initial_states = [
         StateVectorParticleState.from_spin_state(
             ParticleState(
@@ -61,7 +61,7 @@ if __name__ == "__main__":
 
     fig, ax = plot_diatomic_expectation_values(result)
     fig.suptitle(
-        r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
+        r"Nuclear Spin Expectation Values for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $I={I_label}$, $J={J_label}$",
     )
