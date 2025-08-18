@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 from spinecho_sim.molecule import diatomic_hamiltonian_dicke
 from spinecho_sim.molecule.hamiltonian_dicke import (
@@ -37,7 +38,7 @@ if __name__ == "__main__":
     H = 300
     a, b, c, d = 4.258 * H, 0.6717 * H, 113.8, 57.68
     full_result_sparse = diatomic_hamiltonian_dicke(
-        1, 1, coefficients=(a, b, c, d), b_vec=(0.2, 0.2, 1.0)
+        1, 1, coefficients=(a, b, c, d), b_vec=np.array([0.2, 0.2, 1.0])
     )
     full_result_array = to_array(full_result_sparse)
     fig, ax = plot_complex_heatmap(full_result_array)

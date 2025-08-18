@@ -22,7 +22,12 @@ class ParticleState:
     parallel_velocity: float
     _spin_angular_momentum: GenericSpin
     _rotational_angular_momentum: GenericSpin
-    coefficients: tuple[float, float, float, float] = (4.258, 0.6717, 113.8, 57.68)
+    coefficients: tuple[float, float, float, float] = (
+        2 * np.pi * 4.258e7,
+        2 * np.pi * 0.66717e7,
+        2 * np.pi * 113.8e3,
+        2 * np.pi * 57.68e3,
+    )
 
     @property
     def spin(self) -> GenericSpin:
@@ -68,9 +73,6 @@ class CoherentMonatomicParticleState(MonatomicParticleState):
         assert self.spin.size == 1, (
             "CoherentParticleState must represent a single coherent spin."
         )
-        assert self.rotational_angular_momentum.size == 1, (
-            "CoherentParticleState must represent a single coherent spin."
-        )
         assert self._spin_angular_momentum.size == 1, (
             "CoherentParticleState must represent a single coherent spin."
         )
@@ -85,8 +87,6 @@ class StateVectorParticleState(ParticleState):
 
     state_vector: np.ndarray[tuple[int], np.dtype[np.complex128]]
     hilbert_space_dims: tuple[int, int]  # Dimensions of the subsystems
-    displacement: ParticleDisplacement
-    parallel_velocity: float
 
     def __init__(
         self,
@@ -95,12 +95,14 @@ class StateVectorParticleState(ParticleState):
         displacement: ParticleDisplacement,
         parallel_velocity: float,
     ) -> None:
-        self.state_vector = state_vector
-        self.hilbert_space_dims = hilbert_space_dims
-        self.displacement = displacement
-        self.parallel_velocity = parallel_velocity
-        normalized_vector = self.state_vector / np.linalg.norm(self.state_vector)
-        object.__setattr__(self, "state_vector", normalized_vector)
+        # Use object.__setattr__ to bypass immutability of frozen dataclass
+        object.__setattr__(
+            self, "state_vector", state_vector / np.linalg.norm(state_vector)
+        )
+        object.__setattr__(self, "hilbert_space_dims", hilbert_space_dims)
+        object.__setattr__(self, "displacement", displacement)
+        object.__setattr__(self, "parallel_velocity", parallel_velocity)
+
         expected_dim = np.prod(self.hilbert_space_dims)
         if self.state_vector.size != expected_dim:
             msg = (
@@ -131,8 +133,8 @@ class StateVectorParticleState(ParticleState):
         return StateVectorParticleState(
             state_vector=state_vector,
             hilbert_space_dims=(
-                state.spin.size,
-                state.rotational_angular_momentum.size,
+                state.spin.n_stars + 1,  # 2j+1
+                state.rotational_angular_momentum.n_stars + 1,
             ),
             displacement=state.displacement,
             parallel_velocity=state.parallel_velocity,

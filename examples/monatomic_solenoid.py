@@ -8,9 +8,9 @@ from spinecho_sim import (
 )
 from spinecho_sim.solenoid import (
     MonatomicSolenoid,
-    plot_expectation_angles,
-    plot_expectation_values,
-    plot_spin_states,
+    plot_monatomic_expectation_angles,
+    plot_monatomic_expectation_values,
+    plot_monatomic_spin_states,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -50,7 +50,7 @@ if __name__ == "__main__":
     S = n_stars / 2
     S_label = f"{S:.0f}" if S is int else f"{S:.1f}"
 
-    fig, ax = plot_spin_states(result)
+    fig, ax = plot_monatomic_spin_states(result)
     fig.suptitle(
         r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
-    fig, ax = plot_expectation_values(result)
+    fig, ax = plot_monatomic_expectation_values(result)
     fig.suptitle(
         r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
@@ -72,7 +72,7 @@ if __name__ == "__main__":
     )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
-    fig, ax = plot_expectation_angles(result)
+    fig, ax = plot_monatomic_expectation_angles(result)
     fig.suptitle(
         r"Classical Larmor Precession of ${}^3$He in a Sinusoidal Magnetic Field, "
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "

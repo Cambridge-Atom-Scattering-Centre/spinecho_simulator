@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import warnings
 from collections.abc import Callable
 from functools import reduce, wraps
 from itertools import permutations, starmap
@@ -158,7 +159,8 @@ def csr_subtract(a: sp.csr_matrix, b: sp.csr_matrix) -> sp.csr_matrix:
 def csr_scale(a: sp.csr_matrix, scale: complex) -> sp.csr_matrix:
     """Typed sp.csr_matrix * float → sp.csr_matrix."""
     out = a.copy()  # pyright: ignore[reportUnknownVariableType]
-    out.astype(np.complex128).data *= scale
+    out.data = out.data.astype(complex)  # Ensure the data is complex
+    out.data *= scale  # Scale the data by the complex scalar
     return out  # pyright: ignore[reportUnknownVariableType]
 
 
@@ -309,3 +311,24 @@ def solve_ivp_typed(  # noqa: PLR0913
         **kwargs,  # pyright: ignore[reportArgumentType]
     )
     return cast("SolveIVPResult", res)
+
+
+def verify_hermitian(matrix: sp.csr_matrix) -> bool:
+    """Check if a sparse matrix is Hermitian."""
+    return (matrix != matrix.getH()).nnz == 0  # pyright: ignore[reportUnknownVariableType]
+
+
+def validate_spin_quantum_number(s: float) -> None:
+    """Check if the spin quantum number is valid integer or half-integer."""  # noqa: DOC501
+    if not (s > 0 and (2 * s).is_integer()):
+        msg = f"Invalid spin quantum number: {s}. Must be a positive integer or half-integer."
+        raise ValueError(msg)
+
+
+def check_normalization(psi: np.ndarray, tolerance: float = 1e-8) -> None:
+    """Check if the state vector is normalized and issue a warning if not."""
+    norm = np.linalg.norm(psi)
+    if not np.isclose(norm, 1.0, atol=tolerance):
+        warnings.warn(
+            f"State vector is not normalized: norm = {norm}", UserWarning, stacklevel=2
+        )
