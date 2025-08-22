@@ -269,7 +269,7 @@ def compute_diatomic_alignment_tensor(
 
                     # Compute Q_ij
                     q_ij_values[i, j, particle_idx, position_idx] = (
-                        0.5 * expectation - (2 / 3) * s * (s + 1) * (1 if i == j else 0)
+                        0.5 * expectation - (1 / 3) * s * (s + 1) * (1 if i == j else 0)
                     )
 
     # Use symmetry to fill in the lower triangular elements
@@ -324,6 +324,143 @@ def plot_diatomic_alignment_tensor(
             ax.set_ylim(-s, s)
 
     # Set shared x-axis label for the bottom row
+    axes[-1, 1].set_xlabel(r"Distance $z$ along Solenoid Axis")
+    fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
+    return fig, axes
+
+
+def plot_diatomic_alignment_diagnostics(  # noqa: PLR0914
+    result: StateVectorSolenoidSimulationResult,
+    spin: Literal["I", "J"],
+) -> tuple[Figure, Axes]:
+    q_tensor = compute_diatomic_alignment_tensor(
+        result, spin
+    )  # shape: [3, 3, number of particles, positions]
+    assert q_tensor.shape[0:2] == (3, 3)
+    number_particles, number_positions = q_tensor.shape[2], q_tensor.shape[3]
+
+    positions = result.positions
+    if spin == "I":
+        f = (result.hilbert_space_dims[0] - 1) / 2
+    else:
+        f = (result.hilbert_space_dims[1] - 1) / 2
+    normalized_q_tensor = q_tensor / (f * (f + 1))
+
+    fig, axes = plt.subplots(2, 2, figsize=(8, 8), sharex=True)
+
+    # --- batch eigen-decomposition over (particle, position) --------------------
+    # reshape to (Np*Nz, 3, 3)
+    q_reshaped = normalized_q_tensor.transpose(2, 3, 0, 1).reshape(
+        number_particles * number_positions, 3, 3
+    )  # (T,3,3) with T= Np*Nz
+
+    # eigh returns ascending eigenvalues; eigenvectors as columns
+    eigenvalues_reshaped, _ = np.linalg.eigh(q_reshaped)  # w: (T,3), V: (T,3,3)
+
+    # reorder to descending eigenvalues and matching eigenvectors
+    eigenvalues_reshaped = eigenvalues_reshaped[:, ::-1]  # (T,3)
+
+    # reshape back to (3, Np, Nz)
+    eigenvalues = eigenvalues_reshaped.reshape(
+        number_particles, number_positions, 3
+    ).transpose(2, 0, 1)  # (3, Np, Nz)
+
+    # --- uniaxial S and biaxiality η per particle/position ---------------------
+    # largest eigenvalue is lam[0]
+    s = 1.5 * eigenvalues[0, :, :]  # (Np, Nz)
+    eta = (eigenvalues[1, :, :] - eigenvalues[2, :, :]) / eigenvalues[0, :, :]
+
+    # --- scalar invariants q and beta per particle/position --------------------
+    trace_q_tensor_squared = np.einsum("tij,tij->t", q_reshaped, q_reshaped)  # (T,)
+    trace_q_tensor_cubed = np.einsum(
+        "tij,tjk,tki->t", q_reshaped, q_reshaped, q_reshaped
+    )  # (T,)
+    q = np.sqrt(1.5 * trace_q_tensor_squared).reshape(
+        number_particles, number_positions
+    )  # (Np, Nz)
+    beta = (
+        1.0 - 6.0 * (trace_q_tensor_cubed**2) / (trace_q_tensor_squared**3 + 0.0)
+    ).reshape(number_particles, number_positions)
+
+    # --- particle averages at each position ------------------------------------
+    s_mean = np.mean(s, axis=0)  # (Nz,)
+    s_std = np.std(s, axis=0) / np.sqrt(number_particles)  # (Nz,)
+    eta_mean = np.mean(eta, axis=0)  # (Nz,)
+    eta_std = np.std(eta, axis=0) / np.sqrt(number_particles)  # (Nz,)
+    q_mean = np.mean(q, axis=0)  # (Nz,)
+    q_std = np.std(q, axis=0) / np.sqrt(number_particles)  # (Nz,)
+    beta_mean = np.mean(beta, axis=0)  # (Nz,)
+    beta_std = np.std(beta, axis=0) / np.sqrt(number_particles)  # (Nz,)
+
+    (line,) = axes[0, 0].plot(
+        positions,
+        s_mean,
+        label=r"$S$",
+    )
+    color = line.get_color()
+    axes[0, 0].fill_between(
+        positions,
+        s_mean - s_std,
+        s_mean + s_std,
+        alpha=0.2,
+        color=color,
+        label=r"$S \pm 1\sigma$",
+    )
+    axes[0, 0].legend(loc="center left")
+    axes[0, 0].set_ylim(-0.5, 1)
+
+    (line,) = axes[1, 0].plot(
+        positions,
+        eta_mean,
+        label=r"$\eta$",
+    )
+    color = line.get_color()
+    axes[1, 0].fill_between(
+        positions,
+        eta_mean - eta_std,
+        eta_mean + eta_std,
+        alpha=0.2,
+        color=color,
+        label=r"$\eta \pm 1\sigma$",
+    )
+    axes[1, 0].legend(loc="center left")
+
+    (line,) = axes[0, 1].plot(
+        positions,
+        q_mean,
+        label=r"$q$",
+    )
+    color = line.get_color()
+    axes[0, 1].fill_between(
+        positions,
+        q_mean - q_std,
+        q_mean + q_std,
+        alpha=0.2,
+        color=color,
+        label=r"$q \pm 1\sigma$",
+    )
+    axes[0, 1].legend(loc="center left")
+    axes[0, 1].set_ylim(0, 1)
+
+    (line,) = axes[1, 1].plot(
+        positions,
+        beta_mean,
+        label=r"$\beta$",
+    )
+    color = line.get_color()
+    axes[1, 1].fill_between(
+        positions,
+        beta_mean - beta_std,
+        beta_mean + beta_std,
+        alpha=0.2,
+        color=color,
+        label=r"$\beta \pm 1\sigma$",
+    )
+    axes[1, 1].legend(loc="center left")
+    axes[1, 1].set_ylim(0, 1)
+
+    # Set shared x-axis label for the bottom row
+    axes[-1, 0].set_xlabel(r"Distance $z$ along Solenoid Axis")
     axes[-1, 1].set_xlabel(r"Distance $z$ along Solenoid Axis")
     fig.tight_layout(rect=(0, 0, 1, 0.95))  # 0 - 0.95 for axes, 0.05 for title
     return fig, axes
