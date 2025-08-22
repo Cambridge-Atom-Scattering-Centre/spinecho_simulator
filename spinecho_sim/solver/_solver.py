@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidTrajectory:
+class ExperimentalTrajectory:
     """Represents the trajectory of a diatomic particle in a solenoid."""
 
     trajectory: Trajectory
@@ -60,7 +60,7 @@ class SolenoidTrajectory:
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidTrajectory(SolenoidTrajectory):
+class MonatomicExperimentalTrajectory(ExperimentalTrajectory):
     """Represents the trajectory of a monatomic particle in a solenoid."""
 
     trajectory: MonatomicTrajectory
@@ -73,7 +73,7 @@ class MonatomicSolenoidTrajectory(SolenoidTrajectory):
 
 
 @dataclass(kw_only=True, frozen=True)
-class StateVectorSolenoidTrajectory(SolenoidTrajectory):
+class StateVectorExperimentalTrajectory(ExperimentalTrajectory):
     """Represents a trajectory in a solenoid using state vectors instead of spins."""
 
     trajectory: StateVectorTrajectory
@@ -103,11 +103,11 @@ class StateVectorSolenoidTrajectory(SolenoidTrajectory):
 
     @staticmethod
     def from_solenoid_trajectory(
-        solenoid_trajectory: SolenoidTrajectory,
+        solenoid_trajectory: ExperimentalTrajectory,
         hilbert_space_dims: tuple[int, int],
-    ) -> StateVectorSolenoidTrajectory:
+    ) -> StateVectorExperimentalTrajectory:
         """Create a StateVectorSolenoidTrajectory from a SolenoidTrajectory."""
-        return StateVectorSolenoidTrajectory(
+        return StateVectorExperimentalTrajectory(
             trajectory=StateVectorTrajectory.from_trajectory(
                 solenoid_trajectory.trajectory, hilbert_space_dims
             ),
@@ -116,7 +116,7 @@ class StateVectorSolenoidTrajectory(SolenoidTrajectory):
 
 
 @dataclass(kw_only=True, frozen=True)
-class SolenoidSimulationResult:
+class SimulationResult:
     """Represents the result of a solenoid simulation."""
 
     trajectories: TrajectoryList
@@ -137,7 +137,7 @@ class SolenoidSimulationResult:
 
 
 @dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
+class MonatomicSimulationResult(SimulationResult):
     trajectories: MonatomicTrajectoryList
 
     @property
@@ -147,7 +147,7 @@ class MonatomicSolenoidSimulationResult(SolenoidSimulationResult):
 
 
 @dataclass(kw_only=True, frozen=True)
-class StateVectorSolenoidSimulationResult(SolenoidSimulationResult):
+class StateVectorSimulationResult(SimulationResult):
     """Represents the result of a solenoid simulation using state vectors."""
 
     trajectories: StateVectorTrajectoryList
@@ -179,9 +179,9 @@ class StateVectorSolenoidSimulationResult(SolenoidSimulationResult):
 
     @staticmethod
     def from_simulation_result(
-        result: SolenoidSimulationResult,
+        result: SimulationResult,
         hilbert_space_dims: tuple[int, int],
-    ) -> StateVectorSolenoidSimulationResult:
+    ) -> StateVectorSimulationResult:
         """Convert a regular SolenoidSimulationResult to a StateVectorSolenoidSimulationResult."""
         # Create state vector trajectories from regular trajectories
         state_vector_trajectories: list[StateVectorTrajectory] = []
@@ -192,7 +192,7 @@ class StateVectorSolenoidSimulationResult(SolenoidSimulationResult):
             )
             state_vector_trajectories.append(sv_trajectory)
 
-        return StateVectorSolenoidSimulationResult(
+        return StateVectorSimulationResult(
             trajectories=StateVectorTrajectoryList.from_state_vector_trajectories(
                 state_vector_trajectories
             ),
@@ -234,14 +234,14 @@ class Solenoid:
         self,
         initial_state: ParticleState,
         n_steps: int = 100,
-    ) -> SolenoidTrajectory:
+    ) -> ExperimentalTrajectory:
         raise NotImplementedError
 
     def simulate_diatomic_trajectory(
         self,
         initial_state: StateVectorParticleState,
         n_steps: int = 100,
-    ) -> StateVectorSolenoidTrajectory:
+    ) -> StateVectorExperimentalTrajectory:
         i = (initial_state.hilbert_space_dims[0] - 1) / 2
         j = (initial_state.hilbert_space_dims[1] - 1) / 2  # dim=2j+1
         assert i > 1 / 2, "Invalid diatomic spin state: i must be > 1/2"
@@ -282,7 +282,7 @@ class Solenoid:
                     stacklevel=2,
                 )
 
-        return StateVectorSolenoidTrajectory(
+        return StateVectorExperimentalTrajectory(
             trajectory=StateVectorTrajectory(
                 state_vectors=state_vectors,
                 hilbert_space_dims=initial_state.hilbert_space_dims,
@@ -297,7 +297,7 @@ class Solenoid:
         self,
         initial_states: Sequence[ParticleState],
         n_steps: int = 100,
-    ) -> SolenoidSimulationResult:
+    ) -> SimulationResult:
         raise NotImplementedError
 
     @timed
@@ -305,10 +305,10 @@ class Solenoid:
         self,
         initial_states: Sequence[StateVectorParticleState],
         n_steps: int = 100,
-    ) -> StateVectorSolenoidSimulationResult:
+    ) -> StateVectorSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
-        return StateVectorSolenoidSimulationResult(
+        return StateVectorSimulationResult(
             trajectories=StateVectorTrajectoryList.from_state_vector_trajectories(
                 [
                     self.simulate_diatomic_trajectory(state, n_steps).trajectory
@@ -405,7 +405,7 @@ class MonatomicSolenoid(Solenoid):
         self,
         initial_state: ParticleState,
         n_steps: int = 100,
-    ) -> MonatomicSolenoidTrajectory:
+    ) -> MonatomicExperimentalTrajectory:
         """Run the spin echo simulation using configured parameters."""
         assert isinstance(initial_state, MonatomicParticleState), (
             "Expected a coherent monatomic particle state."
@@ -420,7 +420,7 @@ class MonatomicSolenoid(Solenoid):
         spins = Spin[tuple[int, int]](data)
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
-        return MonatomicSolenoidTrajectory(
+        return MonatomicExperimentalTrajectory(
             trajectory=MonatomicTrajectory(
                 _spin_angular_momentum=spins,
                 displacement=initial_state.displacement,
@@ -435,7 +435,7 @@ class MonatomicSolenoid(Solenoid):
         self,
         initial_states: Sequence[ParticleState],
         n_steps: int = 100,
-    ) -> MonatomicSolenoidSimulationResult:
+    ) -> MonatomicSimulationResult:
         """Run a solenoid simulation for multiple initial states."""
         mono_initial_states = [
             state
@@ -445,7 +445,7 @@ class MonatomicSolenoid(Solenoid):
         assert mono_initial_states, "No MonatomicParticleState instances provided."
 
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
-        return MonatomicSolenoidSimulationResult(
+        return MonatomicSimulationResult(
             trajectories=MonatomicTrajectoryList.from_monatomic_trajectories(
                 [
                     self.simulate_trajectory(state, n_steps).trajectory

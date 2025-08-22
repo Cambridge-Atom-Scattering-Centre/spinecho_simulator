@@ -3,7 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.solenoid import (
+from spinecho_sim.solver import (
     MonatomicSolenoid,
     animate_monatomic_mean_expectation_vectors,
     plot_monatomic_expectation_trajectories,

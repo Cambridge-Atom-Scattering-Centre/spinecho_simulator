@@ -12,13 +12,13 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.figure import Figure, SubFigure
 
-    from spinecho_sim.solenoid._solenoid import (
-        StateVectorSolenoidSimulationResult,
+    from spinecho_sim.solver._solver import (
+        StateVectorSimulationResult,
     )
 
 
 def plot_diatomic_expectation_value(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     idx: int,
     spin: Literal["I", "J"],
     *,
@@ -102,7 +102,7 @@ def plot_diatomic_expectation_value(
 
 
 def plot_diatomic_expectation_values(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 2, figsize=(12, 10), sharex=True)
 
@@ -123,7 +123,7 @@ def plot_diatomic_expectation_values(
 
 
 def plot_diatomic_normalisation(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(1, 1, figsize=(10, 6))
 
@@ -139,7 +139,7 @@ def plot_diatomic_normalisation(
 
 
 def plot_diatomic_expectation_difference(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     idx: int,
     *,
     ax: Axes | None = None,
@@ -212,7 +212,7 @@ def plot_diatomic_expectation_difference(
 
 
 def plot_diatomic_expectation_differences(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 1, figsize=(12, 10), sharex=True)
 
@@ -226,7 +226,7 @@ def plot_diatomic_expectation_differences(
 
 
 def compute_diatomic_alignment_tensor(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     spin: Literal["I", "J"],
 ) -> np.ndarray:
     """Compute the traceless, symmetric rank-2 tensor Q_ij for all components."""
@@ -281,7 +281,7 @@ def compute_diatomic_alignment_tensor(
 
 
 def plot_diatomic_alignment_tensor(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     spin: Literal["I", "J"],
 ) -> tuple[Figure, Axes]:
     """Plot the traceless, symmetric rank-2 tensor Q_ij for all components."""
@@ -330,7 +330,7 @@ def plot_diatomic_alignment_tensor(
 
 
 def plot_diatomic_alignment_diagnostics(  # noqa: PLR0914
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     spin: Literal["I", "J"],
 ) -> tuple[Figure, Axes]:
     q_tensor = compute_diatomic_alignment_tensor(

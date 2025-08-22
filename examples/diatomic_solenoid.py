@@ -3,7 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.solenoid import (
+from spinecho_sim.solver import (
     Solenoid,
     animate_diatomic_mean_expectation_vectors,
     plot_diatomic_alignment_diagnostics,
@@ -21,7 +21,7 @@ from spinecho_sim.state import (
 
 if __name__ == "__main__":
     particle_velocity = 714
-    num_spins = 1
+    num_spins = 20
     initial_states = [
         StateVectorParticleState.from_spin_state(
             ParticleState(

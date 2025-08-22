@@ -6,7 +6,7 @@ import numpy as np
 from spinecho_sim import (
     MonatomicParticleState,
 )
-from spinecho_sim.solenoid import (
+from spinecho_sim.solver import (
     MonatomicSolenoid,
     plot_monatomic_expectation_angles,
     plot_monatomic_expectation_values,
