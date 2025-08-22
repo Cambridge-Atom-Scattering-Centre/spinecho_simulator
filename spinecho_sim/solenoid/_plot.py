@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, cast
 
 import numpy as np
 from matplotlib import pyplot as plt
@@ -9,6 +9,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.text import Text
+from tqdm import tqdm
 
 from spinecho_sim.molecule.hamiltonian_dicke import collective_ops_sparse
 from spinecho_sim.state import get_expectation_values
@@ -434,7 +435,7 @@ def _make_arrow(
     )
 
 
-def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0915
+def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0914, PLR0915
     expectations_by_name: Mapping[str, np.ndarray],  # each: shape (3, n)
     *,
     box_limit: float,
@@ -541,6 +542,9 @@ def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0915
         else min(v.shape[1] for v in expectations_by_name.values())
     )
 
+    # Initialize tqdm progress bar
+    progress_bar = tqdm(total=n_frames, desc="Animating Frames")
+
     # update function
     def _update(i: int) -> tuple[Artist, ...]:
         current_vals: dict[str, tuple[float, float, float]] = {}
@@ -567,6 +571,9 @@ def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0915
         if txt is not None and hud_formatter is not None:
             txt.set_text(hud_formatter(current_vals))
 
+        # Update the progress bar
+        progress_bar.update(1)
+
         # return artists (helps even with blit=False)
         ret: list[Artist] = []
         ret.extend(arrows.values())
@@ -579,7 +586,21 @@ def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0915
             ret.append(txt)
         return tuple(ret)
 
-    return FuncAnimation(fig, _update, frames=n_frames, interval=50, blit=False)
+    # Close the progress bar when the animation is complete
+    def _close_progress_bar(progress_bar: tqdm[NoReturn]) -> Callable[[], None]:
+        """Return a function to close the progress bar."""
+
+        def close() -> None:
+            progress_bar.close()
+
+        return close
+
+    # Create the animation
+    anim = FuncAnimation(fig, _update, frames=n_frames, interval=50, blit=False)
+
+    # Attach the progress bar close function to the animation's event source
+    anim.event_source.add_callback(_close_progress_bar(progress_bar))
+    return anim
 
 
 def animate_monatomic_mean_expectation_vectors(
