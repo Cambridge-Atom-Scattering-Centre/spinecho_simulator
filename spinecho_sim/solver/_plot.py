@@ -32,9 +32,9 @@ if TYPE_CHECKING:
     from matplotlib.text import Text
     from mpl_toolkits.mplot3d import Axes3D  # type: ignore[import-untyped]
 
-    from spinecho_sim.solenoid._solenoid import (
-        SolenoidSimulationResult,
-        StateVectorSolenoidSimulationResult,
+    from spinecho_sim.solver._solver import (
+        SimulationResult,
+        StateVectorSimulationResult,
     )
     from spinecho_sim.state._trajectory import (
         Trajectory,
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
 
 def plot_monatomic_spin_state(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
     idx: int,
     *,
     measure: Measure = "abs",
@@ -96,7 +96,7 @@ def plot_monatomic_spin_state(
 
 
 def plot_monatomic_state_intensity(
-    result: SolenoidSimulationResult, idx: int, *, ax: Axes | None = None
+    result: SimulationResult, idx: int, *, ax: Axes | None = None
 ) -> tuple[Figure | SubFigure, Axes, Line2D]:
     fig, ax = get_figure(ax)
 
@@ -118,7 +118,7 @@ def plot_monatomic_state_intensity(
     return fig, ax, line
 
 
-def plot_monatomic_spin_states(result: SolenoidSimulationResult) -> tuple[Figure, Axes]:
+def plot_monatomic_spin_states(result: SimulationResult) -> tuple[Figure, Axes]:
     n_stars = result.spin.n_stars
     fig, axes = plt.subplots(n_stars + 1, 2, figsize=(10, 6), sharex=True)
 
@@ -132,7 +132,7 @@ def plot_monatomic_spin_states(result: SolenoidSimulationResult) -> tuple[Figure
 
 
 def plot_monatomic_expectation_value(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
     idx: int,
     *,
     ax: Axes | None = None,
@@ -181,7 +181,7 @@ def plot_monatomic_expectation_value(
 
 
 def plot_monatomic_expectation_values(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, axes = plt.subplots(3, 1, figsize=(10, 6), sharex=True)
 
@@ -193,7 +193,7 @@ def plot_monatomic_expectation_values(
 
 
 def plot_monatomic_expectation_phi(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
@@ -237,7 +237,7 @@ def plot_monatomic_expectation_phi(
 
 
 def plot_monatomic_expectation_theta(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
     *,
     ax: Axes | None = None,
 ) -> tuple[Figure | SubFigure, Axes]:
@@ -282,7 +282,7 @@ def plot_monatomic_expectation_theta(
 
 
 def plot_monatomic_expectation_angles(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
 ) -> tuple[Figure, Axes]:
     fig, ax = plt.subplots(figsize=(10, 6))
 
@@ -310,7 +310,7 @@ def _plot_monatomic_expectation_trajectory(
 
 
 def plot_monatomic_expectation_trajectories(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
 ) -> tuple[Figure, Axes3D]:
     fig = plt.figure(figsize=(8, 8))
     ax = cast("Axes3D", fig.add_subplot(111, projection="3d"))
@@ -342,7 +342,7 @@ def plot_monatomic_expectation_trajectories(
 
 
 def _calculate_expectation_values(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
     spin: Literal["I", "J"],
 ) -> np.ndarray:
     """Calculate the expectation values for the given spin."""
@@ -604,7 +604,7 @@ def _animate_vectors_core(  # noqa: C901, PLR0913, PLR0914, PLR0915
 
 
 def animate_monatomic_mean_expectation_vectors(
-    result: SolenoidSimulationResult,
+    result: SimulationResult,
 ) -> FuncAnimation:
     positions = result.positions
     expectations = get_expectation_values(result.trajectories.spin)
@@ -634,7 +634,7 @@ def animate_monatomic_mean_expectation_vectors(
 
 
 def animate_diatomic_mean_expectation_vectors(
-    result: StateVectorSolenoidSimulationResult,
+    result: StateVectorSimulationResult,
 ) -> FuncAnimation:
     positions = result.positions
 

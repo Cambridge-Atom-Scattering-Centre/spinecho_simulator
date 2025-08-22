@@ -6,11 +6,11 @@ from typing import Any
 import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 
-from spinecho_sim.solenoid import (
+from spinecho_sim.solver import (
+    ExperimentalTrajectory,
+    MonatomicExperimentalTrajectory,
     MonatomicSolenoid,
-    MonatomicSolenoidTrajectory,
     Solenoid,
-    SolenoidTrajectory,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -55,7 +55,7 @@ def simulate_trajectory_cartesian(
     solenoid: Solenoid,
     initial_state: MonatomicParticleState,
     n_steps: int = 100,
-) -> SolenoidTrajectory:
+) -> ExperimentalTrajectory:
     """Run the spin echo simulation using configured parameters."""
     z_points = np.linspace(0, solenoid.length, n_steps + 1, endpoint=True)
 
@@ -81,7 +81,7 @@ def simulate_trajectory_cartesian(
     spins = Spin.from_iter(
         [x.as_generic() for x in starmap(CoherentSpin.from_cartesian, sol.y.T)]  # type: ignore[return-value]
     )
-    return MonatomicSolenoidTrajectory(
+    return MonatomicExperimentalTrajectory(
         trajectory=MonatomicTrajectory(
             _spin_angular_momentum=spins,
             displacement=initial_state.displacement,
