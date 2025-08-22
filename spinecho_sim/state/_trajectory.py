@@ -31,6 +31,12 @@ class Trajectory(Sequence[Any]):
 
     displacement: ParticleDisplacement
     parallel_velocity: float
+    coefficients: tuple[float, float, float, float] = (
+        2 * np.pi * 4.258e7,
+        2 * np.pi * 0.66717e7,
+        2 * np.pi * 113.8e3,
+        2 * np.pi * 57.68e3,
+    )
 
     @staticmethod
     def from_states(
@@ -45,7 +51,10 @@ class Trajectory(Sequence[Any]):
         assert all(d == displacements[0] for d in displacements), (
             "All states must have the same displacement."
         )
-
+        coefficients_set = [state.coefficients for state in states]
+        assert all(c == coefficients_set for c in coefficients_set), (
+            "All states must have the same coefficients."
+        )
         return Trajectory(
             _spin_angular_momentum=Spin.from_iter(s.spin for s in states),
             _rotational_angular_momentum=Spin.from_iter(
@@ -53,6 +62,7 @@ class Trajectory(Sequence[Any]):
             ),
             displacement=displacements[0],
             parallel_velocity=velocities[0],
+            coefficients=coefficients_set[0],
         )
 
     @override
@@ -81,6 +91,7 @@ class Trajectory(Sequence[Any]):
                 _rotational_angular_momentum=self.rotational_angular_momentum[index],
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
+                coefficients=self.coefficients,
             )
 
         return Trajectory(
@@ -88,6 +99,7 @@ class Trajectory(Sequence[Any]):
             _rotational_angular_momentum=self.rotational_angular_momentum[index],
             displacement=self.displacement,
             parallel_velocity=self.parallel_velocity,
+            coefficients=self.coefficients,
         )
 
 
@@ -173,6 +185,12 @@ class StateVectorTrajectory(Trajectory):
         hilbert_space_dims: tuple[int, int],
         displacement: ParticleDisplacement,
         parallel_velocity: float,
+        coefficients: tuple[float, float, float, float] = (
+            2 * np.pi * 4.258e7,
+            2 * np.pi * 0.66717e7,
+            2 * np.pi * 113.8e3,
+            2 * np.pi * 57.68e3,
+        ),
     ) -> None:
         # Normalize each state vector
         normalized_vectors = np.zeros_like(state_vectors)
@@ -183,6 +201,7 @@ class StateVectorTrajectory(Trajectory):
         self.hilbert_space_dims = hilbert_space_dims
         object.__setattr__(self, "displacement", displacement)
         object.__setattr__(self, "parallel_velocity", parallel_velocity)
+        object.__setattr__(self, "coefficients", coefficients)
 
         expected_dim = np.prod(self.hilbert_space_dims)
 
@@ -207,6 +226,10 @@ class StateVectorTrajectory(Trajectory):
         assert all(d == displacements[0] for d in displacements), (
             "All states must have the same displacement."
         )
+        coefficients_set = [state.coefficients for state in states]
+        assert all(c == coefficients_set[0] for c in coefficients_set), (
+            "All states must have the same coefficients."
+        )
 
         # Extract and stack state vectors
         state_vectors = np.vstack(
@@ -222,6 +245,7 @@ class StateVectorTrajectory(Trajectory):
             hilbert_space_dims=hilbert_space_dims,
             displacement=displacements[0],
             parallel_velocity=velocities[0],
+            coefficients=coefficients_set[0],
         )
 
     @staticmethod
@@ -241,6 +265,7 @@ class StateVectorTrajectory(Trajectory):
             hilbert_space_dims=hilbert_space_dims,
             displacement=trajectory.displacement,
             parallel_velocity=trajectory.parallel_velocity,
+            coefficients=trajectory.coefficients,
         )
 
     @property
@@ -278,6 +303,7 @@ class StateVectorTrajectory(Trajectory):
                 hilbert_space_dims=self.hilbert_space_dims,
                 displacement=self.displacement,
                 parallel_velocity=self.parallel_velocity,
+                coefficients=self.coefficients,
             )
 
         return StateVectorTrajectory(
@@ -285,6 +311,7 @@ class StateVectorTrajectory(Trajectory):
             hilbert_space_dims=self.hilbert_space_dims,
             displacement=self.displacement,
             parallel_velocity=self.parallel_velocity,
+            coefficients=self.coefficients,
         )
 
 
@@ -296,6 +323,12 @@ class TrajectoryList(Sequence[Trajectory]):
     _rotational_angular_momentum: Spin[tuple[int, int, int]]
     displacements: ParticleDisplacementList
     parallel_velocities: np.ndarray[Any, np.dtype[np.floating]]
+    coefficients: tuple[float, float, float, float] = (
+        2 * np.pi * 4.258e7,
+        2 * np.pi * 0.66717e7,
+        2 * np.pi * 113.8e3,
+        2 * np.pi * 57.68e3,
+    )
 
     def __post_init__(self) -> None:
         if (
@@ -329,11 +362,13 @@ class TrajectoryList(Sequence[Trajectory]):
             t.displacement for t in trajectories
         )
         parallel_velocities = np.array([t.parallel_velocity for t in trajectories])
+        coefficients = np.array([t.coefficients for t in trajectories])
         return TrajectoryList(
             _spin_angular_momentum=nuclear_spins,
             _rotational_angular_momentum=rotational_spins,
             displacements=displacements,
             parallel_velocities=parallel_velocities,
+            coefficients=coefficients[0],
         )
 
     @override
@@ -353,12 +388,14 @@ class TrajectoryList(Sequence[Trajectory]):
                 _rotational_angular_momentum=self.rotational_angular_momentum[index],
                 displacements=self.displacements[index],
                 parallel_velocities=self.parallel_velocities[index],
+                coefficients=self.coefficients,
             )
         return Trajectory(
             _spin_angular_momentum=self.spin[index],
             _rotational_angular_momentum=self.rotational_angular_momentum[index],
             displacement=self.displacements[index],
             parallel_velocity=self.parallel_velocities[index],
+            coefficients=self.coefficients,
         )
 
     @override
@@ -369,6 +406,7 @@ class TrajectoryList(Sequence[Trajectory]):
                 _rotational_angular_momentum=self.rotational_angular_momentum[i],
                 displacement=self.displacements[i],
                 parallel_velocity=self.parallel_velocities[i],
+                coefficients=self.coefficients,
             )
 
 
@@ -462,11 +500,18 @@ class StateVectorTrajectoryList(TrajectoryList):
         hilbert_space_dims: tuple[int, int],
         displacements: ParticleDisplacementList,
         parallel_velocities: np.ndarray,
+        coefficients: tuple[float, float, float, float] = (
+            2 * np.pi * 4.258e7,
+            2 * np.pi * 0.66717e7,
+            2 * np.pi * 113.8e3,
+            2 * np.pi * 57.68e3,
+        ),
     ) -> None:
         self.state_vectors = state_vectors
         self.hilbert_space_dims = hilbert_space_dims
         object.__setattr__(self, "displacements", displacements)
         object.__setattr__(self, "parallel_velocities", parallel_velocities)
+        object.__setattr__(self, "coefficients", coefficients)
 
         if (
             self.parallel_velocities.ndim != 1
@@ -507,12 +552,13 @@ class StateVectorTrajectoryList(TrajectoryList):
             t.displacement for t in trajectory_list
         )
         parallel_velocities = np.array([t.parallel_velocity for t in trajectory_list])
-
+        coefficients = np.array([t.coefficients for t in trajectory_list])
         return StateVectorTrajectoryList(
             state_vectors=state_vectors,
             hilbert_space_dims=hilbert_space_dims,
             displacements=displacements,
             parallel_velocities=parallel_velocities,
+            coefficients=coefficients[0],
         )
 
     @override
@@ -546,6 +592,7 @@ class StateVectorTrajectoryList(TrajectoryList):
                 hilbert_space_dims=self.hilbert_space_dims,
                 displacement=self.displacements[index],
                 parallel_velocity=self.parallel_velocities[index],
+                coefficients=self.coefficients,
             )
 
         return StateVectorTrajectoryList(
@@ -553,6 +600,7 @@ class StateVectorTrajectoryList(TrajectoryList):
             hilbert_space_dims=self.hilbert_space_dims,
             displacements=self.displacements[index],
             parallel_velocities=self.parallel_velocities[index],
+            coefficients=self.coefficients,
         )
 
     @override
@@ -563,4 +611,5 @@ class StateVectorTrajectoryList(TrajectoryList):
                 hilbert_space_dims=self.hilbert_space_dims,
                 displacement=self.displacements[i],
                 parallel_velocity=self.parallel_velocities[i],
+                coefficients=self.coefficients,
             )
