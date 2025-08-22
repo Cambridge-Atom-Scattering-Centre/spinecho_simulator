@@ -94,14 +94,18 @@ class StateVectorParticleState(ParticleState):
         hilbert_space_dims: tuple[int, int],
         displacement: ParticleDisplacement,
         parallel_velocity: float,
+        coefficients: tuple[float, float, float, float],
     ) -> None:
-        # Use object.__setattr__ to bypass immutability of frozen dataclass
-        object.__setattr__(
-            self, "state_vector", state_vector / np.linalg.norm(state_vector)
+        super().__init__(
+            _spin_angular_momentum=EmptySpin(),
+            _rotational_angular_momentum=EmptySpin(),
+            displacement=displacement,
+            parallel_velocity=parallel_velocity,
+            coefficients=coefficients,
         )
-        object.__setattr__(self, "hilbert_space_dims", hilbert_space_dims)
-        object.__setattr__(self, "displacement", displacement)
-        object.__setattr__(self, "parallel_velocity", parallel_velocity)
+        # Use object.__setattr__ to bypass immutability of frozen dataclass
+        self.state_vector = state_vector / np.linalg.norm(state_vector)
+        self.hilbert_space_dims = hilbert_space_dims
 
         expected_dim = np.prod(self.hilbert_space_dims)
         if self.state_vector.size != expected_dim:
@@ -138,4 +142,5 @@ class StateVectorParticleState(ParticleState):
             ),
             displacement=state.displacement,
             parallel_velocity=state.parallel_velocity,
+            coefficients=state.coefficients,
         )

@@ -3,7 +3,14 @@
     "version": "0.2",
     "language": "en",
     "words": [
-        "ndigits"
+        "blit",
+        "mgrid",
+        "ndigits",
+        "nolegend",
+        "uncast",
+        "verts",
+        "zlim",
+        "zorder"
     ],
     "ignoreWords": [
         "Phonopy",
