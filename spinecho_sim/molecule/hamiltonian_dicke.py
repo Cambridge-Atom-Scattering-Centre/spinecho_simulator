@@ -140,11 +140,11 @@ def diatomic_hamiltonian_dicke(
     # Generate spin operators
     i, j = round(i, ndigits=1), round(j, ndigits=1)
     i_ops, j_ops = collective_ops_sparse(i, j)
-
     # Linear Zeeman terms
-    hamiltonian_i = csr_scale(zeeman_hamiltonian_dicke(i_ops, b_vec), -a)
-    hamiltonian_j = csr_scale(zeeman_hamiltonian_dicke(j_ops, b_vec), -b)
-
-    return csr_add(
+    hamiltonian_i = csr_scale(zeeman_hamiltonian_dicke(i_ops, b_vec), complex(-1 * a))
+    hamiltonian_j = csr_scale(zeeman_hamiltonian_dicke(j_ops, b_vec), complex(-1 * b))
+    hamiltonian = csr_add(
         csr_add(hamiltonian_i, hamiltonian_j), cache_terms_hamiltonian_dicke(i, j, c, d)
     )
+    hamiltonian.eliminate_zeros()  # keep it neat
+    return hamiltonian

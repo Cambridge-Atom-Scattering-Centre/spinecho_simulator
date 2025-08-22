@@ -2,21 +2,26 @@ from __future__ import annotations
 
 import datetime
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from functools import reduce, wraps
 from itertools import permutations, starmap
 from math import factorial
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, cast
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict, cast, override
 
 import numpy as np
 import scipy.integrate  # pyright: ignore[reportMissingTypeStubs]
 import scipy.sparse as sp  # type: ignore[import-untyped]
 from matplotlib import pyplot as plt
 from matplotlib.colors import Normalize
+from matplotlib.patches import FancyArrowPatch
+from mpl_toolkits.mplot3d import proj3d  # pyright: ignore[reportMissingTypeStubs]
 from numpy.typing import NDArray
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
+    from matplotlib.backend_bases import (
+        RendererBase,  # Import RendererBase for type annotations
+    )
     from matplotlib.figure import Figure, SubFigure
 
 
@@ -332,3 +337,34 @@ def check_normalization(psi: np.ndarray, tolerance: float = 1e-8) -> None:
         warnings.warn(
             f"State vector is not normalized: norm = {norm}", UserWarning, stacklevel=2
         )
+
+
+class Arrow3D(FancyArrowPatch):
+    """Custom class for 3D arrows."""
+
+    def __init__(
+        self,
+        xs: Sequence[float],
+        ys: Sequence[float],
+        zs: Sequence[float],
+        *args: tuple[Any, ...],
+        **kwargs: dict[str, Any],
+    ) -> None:
+        start_position: tuple[float, float] = (xs[0], ys[0])
+        end_position: tuple[float, float] = (xs[1], ys[1])
+        super().__init__(*args, posA=start_position, posB=end_position, **kwargs)
+        self._verts3d = xs, ys, zs
+
+    @override
+    def draw(self, renderer: RendererBase) -> None:
+        xs, ys, zs = self._verts3d
+        x_proj, y_proj, _ = proj3d.proj_transform(xs, ys, zs, self.axes.M)  # pyright: ignore[reportAttributeAccessIssue, reportOptionalMemberAccess, reportUnknownArgumentType, reportUnknownVariableType]
+        self.set_positions((x_proj[0], y_proj[0]), (x_proj[1], y_proj[1]))  # pyright: ignore[reportUnknownArgumentType]
+        super().draw(renderer)
+
+    def do_3d_projection(self) -> float:
+        """Handle 3D projection for the arrow."""
+        xs, ys, zs = self._verts3d
+        xs, ys, zs = proj3d.proj_transform(xs, ys, zs, self.axes.M)  # pyright: ignore[reportUnknownVariableType, reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownArgumentType] # pyright: ignorereportOptionalMemberAccess, [reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownVariableType]
+        self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))  # pyright: ignore[reportUnknownArgumentType]
+        return min(zs)  # pyright: ignore[reportUnknownArgumentType] # Return the minimum z-value for depth sorting
