@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.field import FieldRegion
+from spinecho_sim.field import FieldRegion, FieldSuperposition, UniformFieldRegion
 
 
-def main() -> None:
-    # Analytic cos^2 on-axis profile over length L=1
+def main() -> None:  # noqa: PLR0914
     length = 1.0
 
     def bz(z: float) -> float:
@@ -16,9 +16,10 @@ def main() -> None:
             else 0.0
         )
 
-    region = FieldRegion.analytic(bz=bz, length=length, z_start=0.0, dz=1e-6)
+    analytic = FieldRegion.analytic(bz=bz, length=length, z_start=0.0, dz=1e-6)
+    uniform = UniformFieldRegion(B=np.array([0.0, 0.0, 0.1]))
+    region = FieldSuperposition(regions=[analytic, uniform])
 
-    # Sample cylindrical shell across z with vectorized call
     r = 0.05
     ntheta, nz = 128, 256
     theta = np.linspace(0, 2 * np.pi, ntheta, endpoint=False)
@@ -27,18 +28,33 @@ def main() -> None:
     y_mesh, _ = np.meshgrid(np.sin(theta) * r, z, indexing="xy")
     xyz = np.column_stack([x_mesh.ravel(), y_mesh.ravel(), z_mesh.ravel()])
 
-    b_field = region.field_at_many(xyz)  # (ntheta*nz, 3)
-    b_mag = np.linalg.norm(b_field, axis=1).reshape(nz, ntheta)
-
-    print("B magnitude stats @ r=0.05:")
+    B = region.field_at_many(xyz)  # (nz*ntheta, 3)
+    b_mag = np.linalg.norm(B, axis=1).reshape(nz, ntheta)
     print(
-        "min =",
+        "B magnitude stats @ r=0.05: min=",
         float(b_mag.min()),
-        "max =",
+        "max=",
         float(b_mag.max()),
-        "mean =",
+        "mean=",
         float(b_mag.mean()),
     )
+
+    visualize_field_magnitude(z, b_mag)
+
+
+def visualize_field_magnitude(z: np.ndarray, b_mag: np.ndarray) -> None:
+    b_mean = b_mag.mean(axis=1)
+    plt.figure(figsize=(8, 6))
+    plt.plot(z, b_mean, label="Mean |B|")
+    plt.fill_between(
+        z, b_mag.min(axis=1), b_mag.max(axis=1), alpha=0.2, label="Min/Max |B|"
+    )
+    plt.xlabel("z (m)")
+    plt.ylabel("|B| (T)")
+    plt.title("Magnetic Field Magnitude Along z")
+    plt.legend()
+    plt.grid()
+    plt.show()
 
 
 if __name__ == "__main__":

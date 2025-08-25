@@ -1,55 +1,58 @@
 from __future__ import annotations
 
+import matplotlib.pyplot as plt
 import numpy as np
 
 from spinecho_sim.field import (
-    DataFieldRegion,
     FieldRegion,
     RotatedFieldRegion,
     ScaledFieldRegion,
     TranslatedFieldRegion,
-    UniformFieldRegion,
 )
+from spinecho_sim.util import make_bx_blob
 
 
-def make_blob_bx() -> DataFieldRegion:
-    x = np.linspace(-1.0, 1.0, 21)
-    y = np.linspace(-1.0, 1.0, 21)
-    z = np.linspace(0.0, 1.0, 11)
-    vals = np.zeros((len(x), len(y), len(z), 3))
-    for ix, xx in enumerate(x):
-        for iy, yy in enumerate(y):
-            for iz, zz in enumerate(z):
-                vals[ix, iy, iz, 0] = np.exp(-((xx**2 + yy**2) / 0.2)) * np.exp(
-                    -((zz - 0.5) ** 2) / 0.1
-                )  # Bx-only blob
-    return FieldRegion.from_data(x_vals=x, y_vals=y, z_vals=z, field_data=vals)
+def visualize_extents(regions: list[FieldRegion], title: str = "Extents") -> None:
+    _fig, ax = plt.subplots(figsize=(8, 6))
+    for region in regions:
+        e = region.extent
+        if e is None:
+            continue
+        (xmin, xmax), (_ymin, _ymax), (zmin, zmax) = e
+        ax.plot(
+            [xmin, xmax, xmax, xmin, xmin],
+            [zmin, zmin, zmax, zmax, zmin],
+            label=region.__class__.__name__,
+        )
+    ax.set_xlabel("x")
+    ax.set_ylabel("z")
+    ax.set_title(title)
+    ax.legend()
+    plt.show()
 
 
 def main() -> None:
-    blob = make_blob_bx()
+    # Base blob (Bx)
+    blob = make_bx_blob(x_half=1.0, y_half=1.0, z0=0.0, z1=1.0)
+
+    # Transform chain: rotate (90°) -> translate (dz=0.3) -> scale (×0.5)
+    rotated = RotatedFieldRegion(base_region=blob, angle=np.pi / 2)
+    translated = TranslatedFieldRegion(base_region=rotated, dz=0.3)
+    scaled = ScaledFieldRegion(base_region=translated, scale=0.5)
+
     print("base extent:", blob.extent)
+    print("rotated extent:", rotated.extent)
+    print("translated extent:", translated.extent)
+    print("scaled extent:", scaled.extent)
 
-    # Rotate 90° about z -> Bx pattern becomes By in global frame
-    rot = RotatedFieldRegion(base_region=blob, angle=np.pi / 2)
-    print("rotated extent:", rot.extent)
-
-    # Translate by +0.3 in z
-    moved = TranslatedFieldRegion(base_region=rot, dz=0.3)
-    print("translated extent:", moved.extent)
-
-    # Scale amplitude by 0.5 (note: extent typically should remain geometric, not scaled)
-    half = ScaledFieldRegion(base_region=moved, scale=0.5)
-    print("scaled (amplitude) extent:", half.extent)
-
-    # Add a uniform background Bz
-    uniform = UniformFieldRegion(B=np.array([0.0, 0.0, 0.2]))
-
-    total = half + uniform
-
-    # Compare fields at a few points
+    # Sample vectorized
     pts = np.array([[0.4, 0.0, 0.5], [0.0, 0.4, 0.5], [0.4, 0.0, 0.9]])
-    print("total.field_at_many:\n", total.field_at_many(pts))
+    print("scaled.field_at_many:\n", scaled.field_at_many(pts))
+
+    # Visualize extents of the transform chain
+    visualize_extents(
+        [blob, rotated, translated, scaled], title="Transform Chain Extents"
+    )
 
 
 if __name__ == "__main__":

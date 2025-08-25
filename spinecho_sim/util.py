@@ -17,6 +17,8 @@ from matplotlib.patches import FancyArrowPatch
 from mpl_toolkits.mplot3d import proj3d  # pyright: ignore[reportMissingTypeStubs]
 from numpy.typing import NDArray
 
+from spinecho_sim.field import DataFieldRegion, FieldRegion
+
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
     from matplotlib.backend_bases import (
@@ -368,3 +370,62 @@ class Arrow3D(FancyArrowPatch):
         xs, ys, zs = proj3d.proj_transform(xs, ys, zs, self.axes.M)  # pyright: ignore[reportUnknownVariableType, reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownArgumentType] # pyright: ignorereportOptionalMemberAccess, [reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownVariableType]
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))  # pyright: ignore[reportUnknownArgumentType]
         return min(zs)  # pyright: ignore[reportUnknownArgumentType] # Return the minimum z-value for depth sorting
+
+
+def make_linear_bz_data(  # noqa: PLR0913
+    z0: float,
+    z1: float,
+    bz0: float,
+    bz1: float,
+    *,
+    x_half: float = 0.1,
+    y_half: float = 0.1,
+    nx: int = 5,
+    ny: int = 5,
+    nz: int = 6,
+) -> DataFieldRegion:
+    """Create a DataFieldRegion where Bz varies linearly from bz0 at z0 to bz1 at z1."""
+    x = np.linspace(-x_half, x_half, nx)
+    y = np.linspace(-y_half, y_half, ny)
+    z = np.linspace(z0, z1, nz)
+    field = np.zeros((nx, ny, nz, 3), dtype=np.float64)
+    for ix, _xx in enumerate(x):
+        for iy, _yy in enumerate(y):
+            for iz, zz in enumerate(z):
+                t = 0.0 if z1 == z0 else (zz - z0) / (z1 - z0)
+                bz = (1.0 - t) * bz0 + t * bz1
+                field[ix, iy, iz, :] = [0.0, 0.0, bz]
+    return FieldRegion.from_data(x_vals=x, y_vals=y, z_vals=z, field_data=field)
+
+
+def make_bx_blob(  # noqa: PLR0913
+    *,
+    x_half: float = 0.1,
+    y_half: float = 0.1,
+    z0: float = 0.0,
+    z1: float = 1.0,
+    nx: int = 21,
+    ny: int = 21,
+    nz: int = 11,
+    r_scale: float = 0.1,
+    z_center: float | None = None,
+    z_width: float = 0.2,
+    amplitude: float = 0.1,
+) -> DataFieldRegion:
+    """Create a localized Bx 'blob' with Gaussian radial and axial profiles."""
+    if z_center is None:
+        z_center = 0.5 * (z0 + z1)
+    x = np.linspace(-x_half, x_half, nx)
+    y = np.linspace(-y_half, y_half, ny)
+    z = np.linspace(z0, z1, nz)
+    vals = np.zeros((nx, ny, nz, 3), dtype=np.float64)
+    for ix, xx in enumerate(x):
+        for iy, yy in enumerate(y):
+            for iz, zz in enumerate(z):
+                bx = (
+                    amplitude
+                    * np.exp(-((xx**2 + yy**2) / (r_scale**2)))
+                    * np.exp(-((zz - z_center) ** 2) / (z_width**2))
+                )
+                vals[ix, iy, iz, 0] = bx
+    return FieldRegion.from_data(x_vals=x, y_vals=y, z_vals=z, field_data=vals)

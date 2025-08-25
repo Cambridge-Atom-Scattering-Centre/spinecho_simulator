@@ -2,33 +2,37 @@ from __future__ import annotations
 
 import numpy as np
 
-from spinecho_sim.field import FieldRegion
+from spinecho_sim.field import FieldRegion, UniformFieldRegion
+from spinecho_sim.util import make_linear_bz_data
 
 
 def main() -> None:
-    # Region A: analytic, 2 T in z ∈ [0,1]
-    field_a = FieldRegion.analytic(bz=lambda z: 2.0 if 0 <= z <= 1 else 0.0, length=1.0)
+    # Region A: Analytic 2 T in z ∈ [0, 1]
+    region_a = FieldRegion.analytic(
+        bz=lambda z: 2.0 if 0 <= z <= 1 else 0.0, length=1.0
+    )
 
-    # Region B: data in z ∈ [1,1.5], Bz linearly dropping to 0
-    x = np.linspace(-0.1, 0.1, 5)
-    y = np.linspace(-0.1, 0.1, 5)
-    z = np.linspace(1.0, 1.5, 6)
-    vals = np.zeros((len(x), len(y), len(z), 3))
-    for ix, _xx in enumerate(x):
-        for iy, _yy in enumerate(y):
-            for iz, zz in enumerate(z):
-                bz = 2.0 * max(0.0, 1.5 - zz) / 0.5
-                vals[ix, iy, iz, :] = [0.0, 0.0, bz]
-    field_b = FieldRegion.from_data(x_vals=x, y_vals=y, z_vals=z, field_data=vals)
+    # Region B: Data 2 T -> 0 T in z ∈ [1, 1.5]
+    region_b = make_linear_bz_data(1.0, 1.5, 2.0, 0.0)
 
-    seq = field_a.then(field_b)
+    # Region C: Uniform 1 T in z ∈ [1.5, 2.0]
+    # (reusing an analytic region's extent for convenience)
+    region_c_extent = FieldRegion.analytic(
+        bz=lambda z: 1.0 if 1.5 <= z <= 2.0 else 0.0,  # noqa: PLR2004
+        length=0.5,
+        z_start=1.5,
+    ).extent
+    region_c = UniformFieldRegion(
+        B=np.array([0.0, 0.0, 1.0]), region_extent=region_c_extent
+    )
+
+    seq = region_a.then(region_b).then(region_c)
 
     print("Sequence extent:", seq.extent)
-    for zq in (0.5, 1.2, 1.6):
+    for zq in (0.5, 1.2, 1.6, 2.0):
         print(f"seq @ (0,0,{zq}):", seq.field_at(0.0, 0.0, zq))
 
-    # Vectorized
-    xyz = np.array([[0.0, 0.0, 0.5], [0.0, 0.0, 1.2], [0.0, 0.0, 1.6]])
+    xyz = np.array([[0.0, 0.0, 0.5], [0.0, 0.0, 1.2], [0.0, 0.0, 1.6], [0.0, 0.0, 2.0]])
     print("seq.field_at_many:\n", seq.field_at_many(xyz))
 
 
