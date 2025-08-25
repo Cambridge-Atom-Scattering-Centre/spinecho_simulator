@@ -120,9 +120,7 @@ def generate_heatmaps(  # noqa: PLR0914
         vmin_nnz = nnz_diff.min()
         vmax_nnz = 0
     norm_nnz = Normalize(vmin=vmin_nnz, vmax=vmax_nnz)
-    im1 = axes[0].imshow(
-        nnz_diff, cmap="viridis", norm=norm_nnz, origin="lower", aspect="auto"
-    )
+    im1 = axes[0].imshow(nnz_diff, norm=norm_nnz, origin="lower", aspect="auto")
     axes[0].set_title("NNZ Difference (Majorana - Dicke)")
     fig.colorbar(im1, ax=axes[0])
 
@@ -134,9 +132,7 @@ def generate_heatmaps(  # noqa: PLR0914
         vmin_size = size_diff.min()
         vmax_size = 0
     norm_size = Normalize(vmin=vmin_size, vmax=vmax_size)
-    im2 = axes[1].imshow(
-        size_diff, cmap="viridis", norm=norm_size, origin="lower", aspect="auto"
-    )
+    im2 = axes[1].imshow(size_diff, norm=norm_size, origin="lower", aspect="auto")
     axes[1].set_title("Size Difference (Majorana - Dicke)")
     fig.colorbar(im2, ax=axes[1])
 
@@ -149,7 +145,7 @@ def generate_heatmaps(  # noqa: PLR0914
         vmax_sparsity = 0
     norm_sparsity = Normalize(vmin=vmin_sparsity, vmax=vmax_sparsity)
     im3 = axes[2].imshow(
-        sparsity_diff, cmap="viridis", norm=norm_sparsity, origin="lower", aspect="auto"
+        sparsity_diff, norm=norm_sparsity, origin="lower", aspect="auto"
     )
     axes[2].set_title("Sparsity Difference (Majorana - Dicke)")
     fig.colorbar(im3, ax=axes[2])
