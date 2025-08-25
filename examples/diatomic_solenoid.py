@@ -3,8 +3,9 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
+from spinecho_sim.field import SolenoidRegion
 from spinecho_sim.solver import (
-    Solenoid,
+    FieldSolver,
     animate_diatomic_mean_expectation_vectors,
     plot_diatomic_alignment_diagnostics,
     plot_diatomic_alignment_tensor,
@@ -50,12 +51,13 @@ if __name__ == "__main__":
         )
     ]
 
-    solenoid = Solenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.1,
     )
-    result = solenoid.simulate_diatomic_trajectories(initial_states, n_steps=1000)
+    solver = FieldSolver(region=field)
+    result = solver.simulate_diatomic_trajectories(initial_states, n_steps=1000)
 
     hilbert_space_dimensions = result.hilbert_space_dims
     quantum_number_i = (hilbert_space_dimensions[0] - 1) / 2

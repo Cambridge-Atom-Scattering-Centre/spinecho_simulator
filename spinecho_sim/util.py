@@ -26,6 +26,9 @@ if TYPE_CHECKING:
     )
     from matplotlib.figure import Figure, SubFigure
 
+Vec3 = np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]
+Array3 = np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
+
 
 def get_figure(ax: Axes | None = None) -> tuple[Figure | SubFigure, Axes]:
     """Get a figure and axes for plotting."""

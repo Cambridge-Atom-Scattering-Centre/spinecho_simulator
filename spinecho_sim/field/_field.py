@@ -21,8 +21,7 @@ from scipy.interpolate import (  # pyright: ignore[reportMissingTypeStubs]
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-Vec3 = np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]
-Array3 = np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
+    from spinecho_sim.util import Array3, Vec3
 
 
 class AABB(NamedTuple):  # Axis-Aligned Bounding Box
@@ -732,12 +731,40 @@ class ScaledFieldRegion(FieldRegion):
     @property
     @override
     def extent(self) -> AABB | None:
-        e = self.base_region.extent
-        if e is None:
-            return None
-        (xmin, xmax), (ymin, ymax), (zmin, zmax) = e
-        return AABB(
-            (xmin * self.scale, xmax * self.scale),
-            (ymin * self.scale, ymax * self.scale),
-            (zmin * self.scale, zmax * self.scale),
-        )
+        return self.base_region.extent
+
+
+@dataclass(kw_only=True, frozen=True)
+class SolenoidRegion(AnalyticFieldRegion):
+    """Ergonomic builders that mirror the old Solenoid constructors."""
+
+    @classmethod
+    def with_uniform_z(
+        cls, *, length: float, strength: float, z_start: float = 0.0
+    ) -> SolenoidRegion:
+        """Bz is constant; AnalyticFieldRegion enforces 0 outside z-span."""
+        return cls(bz_axis=lambda _z: strength, length=length, z_start=z_start)
+
+    @classmethod
+    def with_nonuniform_z(
+        cls, *, length: float, strength: Callable[[float], float], z_start: float = 0.0
+    ) -> SolenoidRegion:
+        """Build a solenoid with a non-uniform field along the z-axis."""
+        return cls(bz_axis=strength, length=length, z_start=z_start)
+
+    @classmethod
+    def from_experimental_parameters(
+        cls,
+        *,
+        length: float,
+        magnetic_constant: float,
+        current: float,
+        z_start: float = 0.0,
+    ) -> SolenoidRegion:
+        """Build a solenoid from an experimental magnetic constant and current."""
+        amp = np.pi * magnetic_constant * current / (2 * length)
+
+        def bz(z: float) -> float:
+            return amp * np.sin(np.pi * (z - z_start) / length) ** 2
+
+        return cls(bz_axis=bz, length=length, z_start=z_start)

@@ -4,14 +4,14 @@ from __future__ import annotations
 
 from spinecho_sim.solver import (
     ExperimentalTrajectory,
+    FieldSolver,
     SimulationResult,
-    Solenoid,
 )
 from spinecho_sim.state import MonatomicParticleState
 
 __all__ = [
     "ExperimentalTrajectory",
+    "FieldSolver",
     "MonatomicParticleState",
     "SimulationResult",
-    "Solenoid",
 ]

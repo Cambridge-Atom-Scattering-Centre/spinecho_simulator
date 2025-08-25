@@ -6,8 +6,9 @@ import numpy as np
 from spinecho_sim import (
     MonatomicParticleState,
 )
+from spinecho_sim.field import SolenoidRegion
 from spinecho_sim.solver import (
-    MonatomicSolenoid,
+    FieldSolver,
     plot_monatomic_expectation_angles,
     plot_monatomic_expectation_values,
     plot_monatomic_spin_states,
@@ -38,13 +39,13 @@ if __name__ == "__main__":
             strict=True,
         )
     ]
-
-    solenoid = MonatomicSolenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.1,
     )
-    result = solenoid.simulate_trajectories(initial_states, n_steps=1000)
+    solver = FieldSolver(region=field)
+    result = solver.simulate_monatomic_trajectories(initial_states, n_steps=1000)
 
     n_stars = result.spin.n_stars
     S = n_stars / 2
