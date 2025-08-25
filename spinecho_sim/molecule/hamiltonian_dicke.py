@@ -30,7 +30,7 @@ def single_spin_ops_sparse(
 
     # ladder matrices
     j_plus_lil = sp.lil_matrix((dim, dim), dtype=complex)
-    for col in range(1, dim):  # col index corresponds to m = mvals[col]
+    for col in range(1, dim):
         m = mj_values[col]  # m of the column state
         j_plus_lil[col - 1, col] = np.sqrt(s * (s + 1) - m * (m + 1))
     j_plus = sp.csr_matrix(j_plus_lil.tocsr())

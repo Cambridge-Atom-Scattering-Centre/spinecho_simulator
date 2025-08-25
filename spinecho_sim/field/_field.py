@@ -170,8 +170,8 @@ class AnalyticFieldRegion(FieldRegion):
     dz: float = 1e-5  # Step size for numerical derivatives if needed
 
     _bz_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
-    _bzp_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
-    _bzpp_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
+    _bz_p_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
+    _bz_pp_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         # Bind vectorized callables once
@@ -180,7 +180,7 @@ class AnalyticFieldRegion(FieldRegion):
         object.__setattr__(self, "_bz_v", np.vectorize(bz, otypes=[float]))
         if self.bz_axis_deriv:
             object.__setattr__(
-                self, "_bzp_v", np.vectorize(self.bz_axis_deriv, otypes=[float])
+                self, "_bz_p_v", np.vectorize(self.bz_axis_deriv, otypes=[float])
             )
         else:
             # Define a regular function with type annotations
@@ -189,12 +189,14 @@ class AnalyticFieldRegion(FieldRegion):
 
             object.__setattr__(
                 self,
-                "_bzp_v",
+                "_bz_p_v",
                 numerical_derivative,
             )
         if self.bz_axis_second_deriv:
             object.__setattr__(
-                self, "_bzpp_v", np.vectorize(self.bz_axis_second_deriv, otypes=[float])
+                self,
+                "_bz_pp_v",
+                np.vectorize(self.bz_axis_second_deriv, otypes=[float]),
             )
         else:
             # Define a regular function with type annotations
@@ -205,7 +207,7 @@ class AnalyticFieldRegion(FieldRegion):
 
             object.__setattr__(
                 self,
-                "_bzpp_v",
+                "_bz_pp_v",
                 numerical_derivative,
             )
 
@@ -268,8 +270,8 @@ class AnalyticFieldRegion(FieldRegion):
         x, y, z = xyz[m, 0], xyz[m, 1], xyz[m, 2]
         r = np.hypot(x, y)
         b0 = self._bz_v(z)
-        b0_p = self._bzp_v(z)
-        b0_pp = self._bzpp_v(z)
+        b0_p = self._bz_p_v(z)
+        b0_pp = self._bz_pp_v(z)
         epsilon = 1e-15  # Small threshold for numerical stability
         br = -0.5 * r * b0_p
         bz = b0 - 0.25 * (r * r) * b0_pp
