@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from spinecho_sim.field import AnalyticFieldRegion, DataFieldRegion, FieldSequence
+from spinecho_sim.field import AnalyticFieldRegion, DataFieldRegion
 
 
 def main() -> None:
@@ -36,7 +36,7 @@ def main() -> None:
     )
 
     # Concatenate region1 and region2 end-to-end
-    combined_field = FieldSequence(regions=[region1, region2])
+    combined_field = region1.then(region2)
 
     # --- Tests and Demonstrations ---
     print("=== Testing AnalyticFieldRegion ===")
