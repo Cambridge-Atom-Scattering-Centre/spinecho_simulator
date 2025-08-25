@@ -30,6 +30,14 @@ class AABB(NamedTuple):  # Axis-Aligned Bounding Box
     y: tuple[float, float]
     z: tuple[float, float]
 
+    @override
+    def __repr__(self) -> str:
+        return (
+            f"(x=({float(self.x[0]):.1f}, {float(self.x[1]):.1f}), "
+            f"y=({float(self.y[0]):.1f}, {float(self.y[1]):.1f}), "
+            f"z=({float(self.z[0]):.1f}, {float(self.z[1]):.1f}))"
+        )
+
 
 @dataclass(kw_only=True, frozen=True)
 class FieldRegion(ABC):
@@ -263,20 +271,35 @@ class AnalyticFieldRegion(FieldRegion):
 
     @override
     def field_at_many(self, xyz: Array3) -> Array3:
+        # Initialize output array
         out = np.zeros_like(xyz, dtype=np.float64)
+
+        # Mask for points within the region
         m = self.contains_many(xyz)  # use the vectorized contains
         if not np.any(m):
             return out
+
+        # Extract x, y, z for in-bounds points
         x, y, z = xyz[m, 0], xyz[m, 1], xyz[m, 2]
         r = np.hypot(x, y)
+
+        # Compute field components
         b0 = self._bz_v(z)
         b0_p = self._bz_p_v(z)
         b0_pp = self._bz_pp_v(z)
         epsilon = 1e-15  # Small threshold for numerical stability
         br = -0.5 * r * b0_p
         bz = b0 - 0.25 * (r * r) * b0_pp
-        bx = np.where(r > epsilon, br * (x / r), 0.0)
-        by = np.where(r > epsilon, br * (y / r), 0.0)
+
+        # Safely compute bx and by
+        with np.errstate(divide="ignore", invalid="ignore"):
+            bx = np.zeros_like(br)
+            by = np.zeros_like(br)
+            nonzero_r = r > epsilon
+            bx[nonzero_r] = br[nonzero_r] * (x[nonzero_r] / r[nonzero_r])
+            by[nonzero_r] = br[nonzero_r] * (y[nonzero_r] / r[nonzero_r])
+
+        # Assign computed values to the output array
         out[m, 0], out[m, 1], out[m, 2] = bx, by, bz
         return out
 

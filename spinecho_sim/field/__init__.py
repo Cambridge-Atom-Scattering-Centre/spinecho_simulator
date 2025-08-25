@@ -9,6 +9,10 @@ from spinecho_sim.field._field import (
     FieldSequence,
     FieldSuperposition,
     RotatedFieldRegion,
+    ScaledFieldRegion,
+    TranslatedFieldRegion,
+    UniformFieldRegion,
+    ZeroField,
 )
 
 __all__ = [
@@ -18,4 +22,8 @@ __all__ = [
     "FieldSequence",
     "FieldSuperposition",
     "RotatedFieldRegion",
+    "ScaledFieldRegion",
+    "TranslatedFieldRegion",
+    "UniformFieldRegion",
+    "ZeroField",
 ]
