@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from spinecho_sim.solenoid import Solenoid, SolenoidSimulationResult, SolenoidTrajectory
-from spinecho_sim.state import ParticleState
+from spinecho_sim.solver import (
+    ExperimentalTrajectory,
+    SimulationResult,
+    Solenoid,
+)
+from spinecho_sim.state import MonatomicParticleState
 
 __all__ = [
-    "ParticleState",
+    "ExperimentalTrajectory",
+    "MonatomicParticleState",
+    "SimulationResult",
     "Solenoid",
-    "SolenoidSimulationResult",
-    "SolenoidTrajectory",
 ]
