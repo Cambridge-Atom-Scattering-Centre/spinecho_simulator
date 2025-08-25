@@ -69,13 +69,12 @@ def compare_sparsity(
     return results
 
 
-def generate_heatmaps(
+def calculate_differences(
     results: list[Result],
     i_values: list[float],
     j_values: list[float],
-    normalize_to: str = "lowest",  # "lowest" or "highest"
-) -> None:
-    """Generate heatmaps for differences in nnz, size, and sparsity."""
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Calculate differences in nnz, size, and sparsity."""
     nnz_diff = np.zeros((len(i_values), len(j_values)))
     size_diff = np.zeros((len(i_values), len(j_values)))
     sparsity_diff = np.zeros((len(i_values), len(j_values)))
@@ -87,6 +86,20 @@ def generate_heatmaps(
         nnz_diff[i_idx, j_idx] = result.majorana[0] - result.dicke[0]
         size_diff[i_idx, j_idx] = result.majorana[1] - result.dicke[1]
         sparsity_diff[i_idx, j_idx] = result.majorana[2] - result.dicke[2]
+
+    return nnz_diff, size_diff, sparsity_diff
+
+
+def generate_heatmaps(  # noqa: PLR0914
+    results: list[Result],
+    i_values: list[float],
+    j_values: list[float],
+    normalize_to: str = "lowest",  # "lowest" or "highest"
+) -> None:
+    """Generate heatmaps for differences in nnz, size, and sparsity."""
+    nnz_diff, size_diff, sparsity_diff = calculate_differences(
+        results, i_values, j_values
+    )
 
     # Plot heatmaps
     fig, axes = plt.subplots(1, 3, figsize=(18, 6))
