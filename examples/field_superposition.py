@@ -9,7 +9,7 @@ if __name__ == "__main__":
     def base_func(z: float) -> float:
         return 1.0 if 0.0 <= z <= 1.0 else 0.0
 
-    base_region = AnalyticFieldRegion(Bz_axis=base_func, length=1.0, z_start=0.0)
+    base_region = AnalyticFieldRegion(bz_axis=base_func, length=1.0, z_start=0.0)
 
     # Data field: e.g., a small dipole field centered at z=0.5 adding some Bx component
     x_vals = np.linspace(-0.1, 0.1, 11)

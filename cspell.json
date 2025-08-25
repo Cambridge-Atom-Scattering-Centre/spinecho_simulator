@@ -10,6 +10,7 @@
         "mgrid",
         "ndigits",
         "nolegend",
+        "otypes",
         "uncast",
         "verts",
         "zlim",
