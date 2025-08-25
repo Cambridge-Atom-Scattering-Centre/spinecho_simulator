@@ -140,7 +140,7 @@ class MonatomicTrajectory(Trajectory):
     @property
     @override
     def rotational_angular_momentum(self) -> GenericSpinList:
-        return EmptySpinList(self.rotational_angular_momentum.shape)
+        return EmptySpinList(self._spin_angular_momentum.shape)
 
     @overload
     def __getitem__(
