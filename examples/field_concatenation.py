@@ -14,7 +14,7 @@ def main() -> None:
         return 2.0 if 0.0 <= z <= 1.0 else 0.0
 
     # Create an AnalyticFieldRegion for the solenoid
-    region1 = AnalyticFieldRegion(Bz_axis=solenoid_func, length=1.0, z_start=0.0)
+    region1 = AnalyticFieldRegion(bz_axis=solenoid_func, length=1.0, z_start=0.0)
 
     # Create coordinate arrays for a small grid from z=1.0 to z=1.5 (next 0.5 m)
     x_vals = np.linspace(-0.1, 0.1, 5)  # 0.1 m radius grid in x

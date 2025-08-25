@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from itertools import starmap
+from itertools import pairwise
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -21,6 +21,9 @@ from scipy.interpolate import (  # pyright: ignore[reportMissingTypeStubs]
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+Vec3 = np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]
+Array3 = np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
+
 
 class AABB(NamedTuple):  # Axis-Aligned Bounding Box
     x: tuple[float, float]
@@ -28,20 +31,16 @@ class AABB(NamedTuple):  # Axis-Aligned Bounding Box
     z: tuple[float, float]
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class FieldRegion(ABC):
     """Abstract base class for a magnetic field region."""
 
     @abstractmethod
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         """Compute the (Bx, By, Bz) field at coordinates (x, y, z)."""
         ...
 
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # default: scalar loop; override in data regions
         out = np.empty_like(xyz)
         for i, (x, y, z) in enumerate(xyz):
@@ -58,6 +57,58 @@ class FieldRegion(ABC):
         (xmin, xmax), (ymin, ymax), (zmin, zmax) = self.extent
         return (xmin <= x <= xmax) and (ymin <= y <= ymax) and (zmin <= z <= zmax)
 
+    def contains_many(self, xyz: Array3) -> np.ndarray:
+        e = self.extent
+        if e is None:
+            return np.ones(xyz.shape[0], dtype=bool)
+        (xmin, xmax), (ymin, ymax), (zmin, zmax) = e
+        return (
+            (xmin <= xyz[:, 0])
+            & (xyz[:, 0] <= xmax)
+            & (ymin <= xyz[:, 1])
+            & (xyz[:, 1] <= ymax)
+            & (zmin <= xyz[:, 2])
+            & (xyz[:, 2] <= zmax)
+        )
+
+    @classmethod
+    def analytic(  # noqa: PLR0913
+        cls,
+        *,
+        bz: Callable[[float], float],
+        length: float,
+        z_start: float = 0.0,
+        bz_deriv: Callable[[float], float] | None = None,
+        bz_second_deriv: Callable[[float], float] | None = None,
+        dz: float = 1e-5,
+    ) -> AnalyticFieldRegion:
+        return AnalyticFieldRegion(
+            bz_axis=bz,
+            length=length,
+            z_start=z_start,
+            bz_axis_deriv=bz_deriv,
+            bz_axis_second_deriv=bz_second_deriv,
+            dz=dz,
+        )
+
+    @classmethod
+    def from_data(
+        cls,
+        *,
+        x_vals: np.ndarray,
+        y_vals: np.ndarray,
+        z_vals: np.ndarray,
+        field_data: np.ndarray,
+    ) -> DataFieldRegion:
+        """Create a DataFieldRegion from explicit keyword arguments."""
+        # Pass validated arguments to the DataFieldRegion constructor
+        return DataFieldRegion(
+            x_vals=x_vals,
+            y_vals=y_vals,
+            z_vals=z_vals,
+            field_data=field_data,
+        )
+
     # --- Composition Operators ---
     def __add__(self, other: FieldRegion) -> FieldSuperposition:
         """Combine two regions by superposing their fields."""
@@ -67,42 +118,96 @@ class FieldRegion(ABC):
         """Combine two regions sequentially along the z-axis."""
         return FieldSequence(regions=[self, other])
 
-    def __radd__(self, other: FieldRegion) -> FieldRegion:
+    def __radd__(self, other: object) -> FieldRegion:
         """Support sum([...], start=ZeroField())."""
-        if isinstance(other, ZeroField):
+        if isinstance(other, ZeroField) or other == 0:
             return self
-        return self + other
+        if isinstance(other, FieldRegion):
+            return other + self
+        return NotImplemented
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class ZeroField(FieldRegion):
     """A field region that always returns zero field."""
 
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         return np.array([0.0, 0.0, 0.0], dtype=np.float64)
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         return np.zeros_like(xyz, dtype=np.float64)
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
+class UniformFieldRegion(FieldRegion):
+    B: np.ndarray  # shape (3,)
+    region_extent: AABB | None = None  # Internal storage for extent
+
+    @property
+    @override
+    def extent(self) -> AABB | None:
+        """Override the extent property to define the region's bounding box."""
+        return self.region_extent
+
+    @override
+    def field_at(self, x: float, y: float, z: float) -> np.ndarray:
+        return self.B if self.contains(x, y, z) else np.zeros(3)
+
+
+@dataclass(kw_only=True, frozen=True)
 class AnalyticFieldRegion(FieldRegion):
     """Analytic field region defined by an on-axis Bz(z) profile (axisymmetric)."""
 
-    Bz_axis: Callable[[float], float]  # User-supplied on-axis Bz(z) function
+    bz_axis: Callable[[float], float]  # User-supplied on-axis Bz(z) function
     length: float  # Length of this region along z-axis
     z_start: float = 0.0  # Starting z-coordinate of this region
-    Bz_axis_deriv: Callable[[float], float] | None = None  # Optional derivative of Bz
-    Bz_axis_second_deriv: Callable[[float], float] | None = (
+    bz_axis_deriv: Callable[[float], float] | None = None  # Optional derivative of Bz
+    bz_axis_second_deriv: Callable[[float], float] | None = (
         None  # Optional second derivative of Bz
     )
     dz: float = 1e-5  # Step size for numerical derivatives if needed
+
+    _bz_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
+    _bzp_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
+    _bzpp_v: Callable[[np.ndarray], np.ndarray] = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Bind vectorized callables once
+        bz = self.bz_axis
+        dz = self.dz
+        object.__setattr__(self, "_bz_v", np.vectorize(bz, otypes=[float]))
+        if self.bz_axis_deriv:
+            object.__setattr__(
+                self, "_bzp_v", np.vectorize(self.bz_axis_deriv, otypes=[float])
+            )
+        else:
+            # Define a regular function with type annotations
+            def numerical_derivative(z: np.ndarray) -> np.ndarray:
+                return (self._bz_v(z + dz) - self._bz_v(z - dz)) / (2 * dz)
+
+            object.__setattr__(
+                self,
+                "_bzp_v",
+                numerical_derivative,
+            )
+        if self.bz_axis_second_deriv:
+            object.__setattr__(
+                self, "_bzpp_v", np.vectorize(self.bz_axis_second_deriv, otypes=[float])
+            )
+        else:
+            # Define a regular function with type annotations
+            def numerical_derivative(z: np.ndarray) -> np.ndarray:
+                return (self._bz_v(z + dz) - 2 * self._bz_v(z) + self._bz_v(z - dz)) / (
+                    dz * dz
+                )
+
+            object.__setattr__(
+                self,
+                "_bzpp_v",
+                numerical_derivative,
+            )
 
     @property
     @override
@@ -115,34 +220,33 @@ class AnalyticFieldRegion(FieldRegion):
         )
 
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         # If z is outside this region, return zero field
         if not (self.z_start <= z <= self.z_start + self.length):
             return np.asarray([0.0, 0.0, 0.0])
 
         # Compute on-axis field and derivatives at this z
-        b0 = self.Bz_axis(z)  # on-axis Bz
+        b0 = self.bz_axis(z)  # on-axis Bz
 
         # Radial distance in x-y plane
         r = np.hypot(x, y)
-        if r == 0:
+        epsilon = 1e-15  # Small threshold for numerical stability
+        if r < epsilon:
             return np.array([0.0, 0.0, b0])
 
         # First derivative of Bz (numeric if no analytic derivative provided)
-        if self.Bz_axis_deriv:
-            b0_p = self.Bz_axis_deriv(z)
+        if self.bz_axis_deriv:
+            b0_p = self.bz_axis_deriv(z)
         else:
             # Use central difference to approximate derivative
-            b0_p = (self.Bz_axis(z + self.dz) - self.Bz_axis(z - self.dz)) / (
+            b0_p = (self.bz_axis(z + self.dz) - self.bz_axis(z - self.dz)) / (
                 2 * self.dz
             )
         # Second derivative for Bz (numeric if no analytic derivative provided)
-        if self.Bz_axis_second_deriv:
-            b0_pp = self.Bz_axis_second_deriv(z)
+        if self.bz_axis_second_deriv:
+            b0_pp = self.bz_axis_second_deriv(z)
         else:
-            b0_pp = (self.Bz_axis(z + self.dz) - 2 * b0 + self.Bz_axis(z - self.dz)) / (
+            b0_pp = (self.bz_axis(z + self.dz) - 2 * b0 + self.bz_axis(z - self.dz)) / (
                 self.dz**2
             )
 
@@ -156,64 +260,23 @@ class AnalyticFieldRegion(FieldRegion):
         return np.array([b_x, b_y, b_z_off])
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
-        # Initialize output array
-        result = np.zeros_like(xyz, dtype=np.float64)
-
-        # Mask for points within the region
-        in_bounds = (xyz[:, 2] >= self.z_start) & (
-            xyz[:, 2] <= self.z_start + self.length
-        )
-
-        # Compute fields for in-bounds points
-        if np.any(in_bounds):
-            x_in = xyz[in_bounds, 0]
-            y_in = xyz[in_bounds, 1]
-            z_in = xyz[in_bounds, 2]
-
-            # Compute on-axis field and derivatives
-            b0 = np.vectorize(self.Bz_axis)(z_in)
-            if self.Bz_axis_deriv:
-                b0_p = np.vectorize(self.Bz_axis_deriv)(z_in)
-            else:
-                dz = 1e-5
-                b0_p = (
-                    np.vectorize(self.Bz_axis)(z_in + dz)
-                    - np.vectorize(self.Bz_axis)(z_in - dz)
-                ) / (2 * dz)
-
-            if self.Bz_axis_second_deriv:
-                b0_pp = np.vectorize(self.Bz_axis_second_deriv)(z_in)
-            else:
-                dz = 1e-5
-                b0_pp = (
-                    np.vectorize(self.Bz_axis)(z_in + dz)
-                    - 2 * b0
-                    + np.vectorize(self.Bz_axis)(z_in - dz)
-                ) / (dz**2)
-
-            # Radial distance in x-y plane
-            r = np.hypot(x_in, y_in)
-
-            # Compute off-axis components using paraxial expansion
-            b_r = -0.5 * r * b0_p
-            b_z_off = b0 + (-0.25 * r**2 * b0_pp)
-
-            # Resolve Br into x and y components
-            b_x = np.zeros_like(r)
-            b_y = np.zeros_like(r)
-            nonzero_r = r > 0
-            b_x[nonzero_r] = b_r[nonzero_r] * (x_in[nonzero_r] / r[nonzero_r])
-            b_y[nonzero_r] = b_r[nonzero_r] * (y_in[nonzero_r] / r[nonzero_r])
-
-            # Assign results to the output array
-            result[in_bounds, 0] = b_x
-            result[in_bounds, 1] = b_y
-            result[in_bounds, 2] = b_z_off
-
-        return result
+    def field_at_many(self, xyz: Array3) -> Array3:
+        out = np.zeros_like(xyz, dtype=np.float64)
+        m = self.contains_many(xyz)  # use the vectorized contains
+        if not np.any(m):
+            return out
+        x, y, z = xyz[m, 0], xyz[m, 1], xyz[m, 2]
+        r = np.hypot(x, y)
+        b0 = self._bz_v(z)
+        b0_p = self._bzp_v(z)
+        b0_pp = self._bzpp_v(z)
+        epsilon = 1e-15  # Small threshold for numerical stability
+        br = -0.5 * r * b0_p
+        bz = b0 - 0.25 * (r * r) * b0_pp
+        bx = np.where(r > epsilon, br * (x / r), 0.0)
+        by = np.where(r > epsilon, br * (y / r), 0.0)
+        out[m, 0], out[m, 1], out[m, 2] = bx, by, bz
+        return out
 
 
 @overload
@@ -260,7 +323,7 @@ def make_rgi3d(  # noqa: PLR0913
     )
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class DataFieldRegion(FieldRegion):
     """Field region defined by discrete data on a 3D grid."""
 
@@ -273,12 +336,37 @@ class DataFieldRegion(FieldRegion):
 
     _interpolator: RegularGridInterpolator = field(init=False, repr=False)
 
+    def validate(self) -> None:
+        # Check for NaNs or infinite values in field_data
+        if not np.isfinite(self.field_data).all():
+            msg = "field_data contains NaN or infinite values."
+            raise ValueError(msg)
+
+        # Check for uniform spacing in x_vals, y_vals, and z_vals
+        for arr, name in (
+            (self.x_vals, "x_vals"),
+            (self.y_vals, "y_vals"),
+            (self.z_vals, "z_vals"),
+        ):
+            diffs = np.diff(arr)
+            if not np.allclose(diffs, diffs[0]):
+                msg = f"{name} must have uniform spacing."
+                raise ValueError(msg)
+
     def __post_init__(self) -> None:
         # Ensure input arrays are contiguous and of type float64
-        self.x_vals = np.asarray(self.x_vals, dtype=np.float64, order="C")
-        self.y_vals = np.asarray(self.y_vals, dtype=np.float64, order="C")
-        self.z_vals = np.asarray(self.z_vals, dtype=np.float64, order="C")
-        self.field_data = np.asarray(self.field_data, dtype=np.float64, order="C")
+        object.__setattr__(
+            self, "x_vals", np.asarray(self.x_vals, dtype=np.float64, order="C")
+        )
+        object.__setattr__(
+            self, "y_vals", np.asarray(self.y_vals, dtype=np.float64, order="C")
+        )
+        object.__setattr__(
+            self, "z_vals", np.asarray(self.z_vals, dtype=np.float64, order="C")
+        )
+        object.__setattr__(
+            self, "field_data", np.asarray(self.field_data, dtype=np.float64, order="C")
+        )
         # (optional) sanity checks
         for arr, name in (
             (self.x_vals, "x_vals"),
@@ -303,6 +391,7 @@ class DataFieldRegion(FieldRegion):
             fill_value=0.0,  # disallow extrapolation
         )
         object.__setattr__(self, "_interpolator", interpolator)
+        self.validate()
 
     @property
     @override
@@ -315,9 +404,7 @@ class DataFieldRegion(FieldRegion):
         )
 
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         # Check if the point is within the bounds of the grid
         out_of_bounds = (
             x < self.x_vals[0]
@@ -336,14 +423,12 @@ class DataFieldRegion(FieldRegion):
         # Alternatively, we could choose to return zeros outside region:
         # if x < self.x_vals[0] or x > self.x_vals[-1] or ... (similar for y,z): return [0,0,0]
         return cast(
-            "np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]",
+            "Vec3",
             self._interpolator(point).flatten(),
         )  # shape (3,)
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # Check if any points are out of bounds
         x_min, x_max = self.x_vals[0], self.x_vals[-1]
         y_min, y_max = self.y_vals[0], self.y_vals[-1]
@@ -369,7 +454,7 @@ class DataFieldRegion(FieldRegion):
         return result
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class FieldSequence(FieldRegion):
     """Composite field region that concatenates multiple regions end-to-end along z."""
 
@@ -385,10 +470,20 @@ class FieldSequence(FieldRegion):
                 flattened_regions.append(region)
         object.__setattr__(self, "regions", flattened_regions)
 
+        # Validate non-overlapping z-spans
+        z_spans = [
+            (region.extent.z[0], region.extent.z[1])
+            for region in self.regions
+            if region.extent is not None
+        ]
+        z_spans.sort()  # Sort by start of z-span
+        for (z1_start, z1_end), (z2_start, z2_end) in pairwise(z_spans):
+            if z1_end > z2_start:
+                msg = f"Overlapping z-spans detected: ({z1_start}, {z1_end}) and ({z2_start}, {z2_end})"
+                raise ValueError(msg)
+
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         for region in self.regions:
             if region.contains(x, y, z):
                 return region.field_at(x, y, z)
@@ -396,9 +491,7 @@ class FieldSequence(FieldRegion):
         return np.array([0.0, 0.0, 0.0])
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # Initialize output array
         result = np.zeros_like(xyz, dtype=np.float64)
 
@@ -409,20 +502,38 @@ class FieldSequence(FieldRegion):
         for region in self.regions:
             if not np.any(unassigned):
                 break  # All points have been assigned
-
-            # Get in-bounds points for this region
-            in_bounds = np.array(list(starmap(region.contains, xyz[unassigned])))
-
-            # Compute fields for in-bounds points
-            if np.any(in_bounds):
-                indices = np.where(unassigned)[0][in_bounds]
-                result[indices] = region.field_at_many(xyz[indices])
-                unassigned[indices] = False  # Mark these points as assigned
+            m = unassigned & region.contains_many(xyz)
+            if m.any():
+                result[m] = region.field_at_many(xyz[m])
+                unassigned[m] = False
 
         return result
 
+    @property
+    @override
+    def extent(self) -> AABB | None:
+        """Compute the union of extents of all regions."""
+        extents = [
+            region.extent for region in self.regions if region.extent is not None
+        ]
+        if not extents:
+            return None  # Unbounded if no regions have extents
 
-@dataclass(kw_only=True)
+        x_min = min(e.x[0] for e in extents)
+        x_max = max(e.x[1] for e in extents)
+        y_min = min(e.y[0] for e in extents)
+        y_max = max(e.y[1] for e in extents)
+        z_min = min(e.z[0] for e in extents)
+        z_max = max(e.z[1] for e in extents)
+        return AABB((x_min, x_max), (y_min, y_max), (z_min, z_max))
+
+    @override
+    def contains(self, x: float, y: float, z: float) -> bool:
+        """Check if any region contains the point."""
+        return any(region.contains(x, y, z) for region in self.regions)
+
+
+@dataclass(kw_only=True, frozen=True)
 class FieldSuperposition(FieldRegion):
     """Composite field region that superposes multiple regions (sums their fields)."""
 
@@ -439,9 +550,7 @@ class FieldSuperposition(FieldRegion):
         object.__setattr__(self, "regions", flattened_regions)
 
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         b_total = np.array([0.0, 0.0, 0.0])
         for region in self.regions:
             if region.contains(x, y, z):
@@ -453,9 +562,7 @@ class FieldSuperposition(FieldRegion):
         return b_total
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # Initialize output array
         result = np.zeros_like(xyz, dtype=np.float64)
 
@@ -465,8 +572,31 @@ class FieldSuperposition(FieldRegion):
 
         return result
 
+    @property
+    @override
+    def extent(self) -> AABB | None:
+        """Compute the union of extents of all regions."""
+        extents = [
+            region.extent for region in self.regions if region.extent is not None
+        ]
+        if not extents:
+            return None  # Unbounded if no regions have extents
 
-@dataclass(kw_only=True)
+        x_min = min(e.x[0] for e in extents)
+        x_max = max(e.x[1] for e in extents)
+        y_min = min(e.y[0] for e in extents)
+        y_max = max(e.y[1] for e in extents)
+        z_min = min(e.z[0] for e in extents)
+        z_max = max(e.z[1] for e in extents)
+        return AABB((x_min, x_max), (y_min, y_max), (z_min, z_max))
+
+    @override
+    def contains(self, x: float, y: float, z: float) -> bool:
+        """Check if any region contains the point."""
+        return any(region.contains(x, y, z) for region in self.regions)
+
+
+@dataclass(kw_only=True, frozen=True)
 class RotatedFieldRegion(FieldRegion):
     """Field region that rotates another region about the z-axis by a given angle."""
 
@@ -477,17 +607,32 @@ class RotatedFieldRegion(FieldRegion):
 
     def __post_init__(self) -> None:
         c, s = np.cos(self.angle), np.sin(self.angle)
-        self._to_global_rotation = np.array(
-            [[c, -s, 0], [s, c, 0], [0, 0, 1]]
+        object.__setattr__(
+            self, "_to_global_rotation", np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
         )  # rotate vector to global
-        self._to_base_rotation = (
-            self._to_global_rotation.T
+        object.__setattr__(
+            self, "_to_base_rotation", self._to_global_rotation.T
         )  # rotate point to base (opposite angle)
 
+    @property
     @override
-    def field_at(
-        self, x: float, y: float, z: float
-    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+    def extent(self) -> AABB | None:
+        e = self.base_region.extent
+        if e is None:
+            return None
+        (xmin, xmax), (ymin, ymax), (zmin, zmax) = e
+        # corners in xy
+        corners = np.array(
+            [[xmin, ymin, 0], [xmin, ymax, 0], [xmax, ymin, 0], [xmax, ymax, 0]]
+        )
+        rot = self._to_global_rotation
+        rc = corners @ rot.T
+        x_min, y_min = rc[:, 0].min(), rc[:, 1].min()
+        x_max, y_max = rc[:, 0].max(), rc[:, 1].max()
+        return AABB((x_min, x_max), (y_min, y_max), (zmin, zmax))
+
+    @override
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
         point_base = self._to_base_rotation @ np.array(
             [x, y, z]
         )  # Rotate point to base region's frame
@@ -502,9 +647,7 @@ class RotatedFieldRegion(FieldRegion):
         )  # Rotate field vector back to global frame
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # Rotate points to the base region's frame
         points_base = xyz @ self._to_base_rotation.T
 
@@ -515,7 +658,7 @@ class RotatedFieldRegion(FieldRegion):
         return fields_base @ self._to_global_rotation.T
 
 
-@dataclass(kw_only=True)
+@dataclass(kw_only=True, frozen=True)
 class TranslatedFieldRegion(FieldRegion):
     base_region: FieldRegion
     dx: float = 0.0
@@ -527,9 +670,7 @@ class TranslatedFieldRegion(FieldRegion):
         return self.base_region.field_at(x - self.dx, y - self.dy, z - self.dz)
 
     @override
-    def field_at_many(
-        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
-    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+    def field_at_many(self, xyz: Array3) -> Array3:
         # Apply the translation to all points
         translated_xyz = xyz - np.array([self.dx, self.dy, self.dz])
 
@@ -547,4 +688,31 @@ class TranslatedFieldRegion(FieldRegion):
             (xmin + self.dx, xmax + self.dx),
             (ymin + self.dy, ymax + self.dy),
             (zmin + self.dz, zmax + self.dz),
+        )
+
+
+@dataclass(kw_only=True, frozen=True)
+class ScaledFieldRegion(FieldRegion):
+    base_region: FieldRegion
+    scale: float
+
+    @override
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
+        return self.base_region.field_at(x, y, z) * self.scale
+
+    @override
+    def field_at_many(self, xyz: Array3) -> Array3:
+        return self.base_region.field_at_many(xyz) * self.scale
+
+    @property
+    @override
+    def extent(self) -> AABB | None:
+        e = self.base_region.extent
+        if e is None:
+            return None
+        (xmin, xmax), (ymin, ymax), (zmin, zmax) = e
+        return AABB(
+            (xmin * self.scale, xmax * self.scale),
+            (ymin * self.scale, ymax * self.scale),
+            (zmin * self.scale, zmax * self.scale),
         )
