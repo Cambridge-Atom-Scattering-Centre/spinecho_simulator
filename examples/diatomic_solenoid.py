@@ -6,6 +6,10 @@ import numpy as np
 from spinecho_sim.solver import (
     Solenoid,
     animate_diatomic_mean_expectation_vectors,
+    plot_diatomic_alignment_diagnostics,
+    plot_diatomic_alignment_tensor,
+    plot_diatomic_expectation_differences,
+    plot_diatomic_expectation_values,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -54,52 +58,60 @@ if __name__ == "__main__":
     result = solenoid.simulate_diatomic_trajectories(initial_states, n_steps=1000)
 
     hilbert_space_dimensions = result.hilbert_space_dims
-    I = (hilbert_space_dimensions[0] - 1) / 2
-    J = (hilbert_space_dimensions[1] - 1) / 2
-    I_label = f"{I:.0f}" if I is int else f"{I:.1f}"
-    J_label = f"{J:.0f}" if J is int else f"{J:.1f}"
+    quantum_number_i = (hilbert_space_dimensions[0] - 1) / 2
+    quantum_number_j = (hilbert_space_dimensions[1] - 1) / 2
+    i_label = (
+        f"{quantum_number_i:.0f}"
+        if quantum_number_i is int
+        else f"{quantum_number_i:.1f}"
+    )
+    j_label = (
+        f"{quantum_number_j:.0f}"
+        if quantum_number_j is int
+        else f"{quantum_number_j:.1f}"
+    )
 
-    # fig, ax = plot_diatomic_expectation_values(result)
-    # fig.suptitle(
-    #     r"Nuclear Spin Expectation Values for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
-    #     r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins, $I={I_label}$, $J={J_label}$",
-    # )
-    # output_path = f"./examples/classical_solenoid.expectation.{num_spins}-spins_I-{I_label}_J-{J_label}.pdf"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    fig, ax = plot_diatomic_expectation_values(result)
+    fig.suptitle(
+        r"Nuclear Spin Expectation Values for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $I={i_label}$, $J={j_label}$",
+    )
+    output_path = f"./examples/classical_solenoid.expectation.{num_spins}-spins_I-{i_label}_J-{j_label}.pdf"
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
-    # fig, ax = plot_diatomic_expectation_differences(result)
-    # fig.suptitle(
-    #     r"Nuclear Spin Expectation Values for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
-    #     r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins, $I={I_label}$, $J={J_label}$",
-    # )
-    # output_path = f"./examples/classical_solenoid.expectation_differences.{num_spins}-spins_I-{I_label}_J-{J_label}.pdf"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    fig, ax = plot_diatomic_expectation_differences(result)
+    fig.suptitle(
+        r"Nuclear Spin Expectation Values for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $I={i_label}$, $J={j_label}$",
+    )
+    output_path = f"./examples/classical_solenoid.expectation_differences.{num_spins}-spins_I-{i_label}_J-{j_label}.pdf"
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     anim = animate_diatomic_mean_expectation_vectors(result)
-    output_path = f"./examples/classical_solenoid.expectation.animations.{num_spins}-spins_I-{I_label}_J-{J_label}.mp4"
+    output_path = f"./examples/classical_solenoid.expectation.animations.{num_spins}-spins_I-{i_label}_J-{j_label}.mp4"
 
     # Save the animation
     anim.save(output_path, fps=60, writer="ffmpeg")  # Save as MP4 using ffmpeg
     print(f"Animation saved to {output_path}")
 
-    # fig, ax = plot_diatomic_alignment_tensor(result, "I")
-    # fig.suptitle(
-    #     r"Nuclear Spin Alignment Tensor $Q_{ij}$ for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
-    #     r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins, $I={I_label}$, $J={J_label}$",
-    # )
-    # output_path = f"./examples/classical_solenoid.alignment.{num_spins}-spins_I-{I_label}_J-{J_label}.pdf"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    fig, ax = plot_diatomic_alignment_tensor(result, "I")
+    fig.suptitle(
+        r"Nuclear Spin Alignment Tensor $Q_{ij}$ for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $I={i_label}$, $J={j_label}$",
+    )
+    output_path = f"./examples/classical_solenoid.alignment.{num_spins}-spins_I-{i_label}_J-{j_label}.pdf"
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
-    # fig, ax = plot_diatomic_alignment_diagnostics(result, "I")
-    # fig.suptitle(
-    #     r"Measures of Nuclear Spin Alignment Tensor $Q_{ij}$ for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
-    #     r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
-    #     f"{num_spins} spins, $I={I_label}$, $J={J_label}$",
-    # )
-    # output_path = f"./examples/classical_solenoid.q_tensor_measure.{num_spins}-spins_I-{I_label}_J-{J_label}.pdf"
-    # plt.savefig(output_path, dpi=600, bbox_inches="tight")
+    fig, ax = plot_diatomic_alignment_diagnostics(result, "I")
+    fig.suptitle(
+        r"Measures of Nuclear Spin Alignment Tensor $Q_{ij}$ for H$_2$ Molecular Beam in a Sinusoidal Magnetic Field, "
+        r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
+        f"{num_spins} spins, $I={i_label}$, $J={j_label}$",
+    )
+    output_path = f"./examples/classical_solenoid.q_tensor_measure.{num_spins}-spins_I-{i_label}_J-{j_label}.pdf"
+    plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     plt.show()
