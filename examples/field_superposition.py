@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from spinecho_sim.field import AnalyticFieldRegion, DataFieldRegion, FieldSuperposition
+from spinecho_sim.field import AnalyticFieldRegion, DataFieldRegion
 
 if __name__ == "__main__":
     # Analytic base field: e.g., 1 T uniform field in Z over 1 m
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     )
 
     # Superpose the uniform solenoid field and the dipole field
-    total_field = FieldSuperposition(regions=[base_region, dipole_region])
+    total_field = base_region + dipole_region
 
     # Query a point for demonstration
     B = total_field.field_at(0.05, 0.0, 0.5)

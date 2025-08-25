@@ -3,7 +3,15 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from itertools import starmap
-from typing import TYPE_CHECKING, Any, Literal, NamedTuple, cast, overload, override
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NamedTuple,
+    cast,
+    overload,
+    override,
+)
 
 import numpy as np
 from scipy.interpolate import (  # pyright: ignore[reportMissingTypeStubs]
@@ -49,6 +57,38 @@ class FieldRegion(ABC):
             return True
         (xmin, xmax), (ymin, ymax), (zmin, zmax) = self.extent
         return (xmin <= x <= xmax) and (ymin <= y <= ymax) and (zmin <= z <= zmax)
+
+    # --- Composition Operators ---
+    def __add__(self, other: FieldRegion) -> FieldSuperposition:
+        """Combine two regions by superposing their fields."""
+        return FieldSuperposition(regions=[self, other])
+
+    def then(self, other: FieldRegion) -> FieldSequence:
+        """Combine two regions sequentially along the z-axis."""
+        return FieldSequence(regions=[self, other])
+
+    def __radd__(self, other: FieldRegion) -> FieldRegion:
+        """Support sum([...], start=ZeroField())."""
+        if isinstance(other, ZeroField):
+            return self
+        return self + other
+
+
+@dataclass(kw_only=True)
+class ZeroField(FieldRegion):
+    """A field region that always returns zero field."""
+
+    @override
+    def field_at(
+        self, x: float, y: float, z: float
+    ) -> np.ndarray[tuple[Literal[3]], np.dtype[np.floating]]:
+        return np.array([0.0, 0.0, 0.0], dtype=np.float64)
+
+    @override
+    def field_at_many(
+        self, xyz: np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]
+    ) -> np.ndarray[tuple[int, Literal[3]], np.dtype[np.floating]]:
+        return np.zeros_like(xyz, dtype=np.float64)
 
 
 @dataclass(kw_only=True)
@@ -335,6 +375,16 @@ class FieldSequence(FieldRegion):
 
     regions: list[FieldRegion]
 
+    def __post_init__(self) -> None:
+        # Flatten nested FieldSequence instances
+        flattened_regions = []
+        for region in self.regions:
+            if isinstance(region, FieldSequence):
+                flattened_regions.extend(region.regions)
+            else:
+                flattened_regions.append(region)
+        object.__setattr__(self, "regions", flattened_regions)
+
     @override
     def field_at(
         self, x: float, y: float, z: float
@@ -377,6 +427,16 @@ class FieldSuperposition(FieldRegion):
     """Composite field region that superposes multiple regions (sums their fields)."""
 
     regions: list[FieldRegion]
+
+    def __post_init__(self) -> None:
+        # Flatten nested FieldSuperposition instances
+        flattened_regions = []
+        for region in self.regions:
+            if isinstance(region, FieldSuperposition):
+                flattened_regions.extend(region.regions)
+            else:
+                flattened_regions.append(region)
+        object.__setattr__(self, "regions", flattened_regions)
 
     @override
     def field_at(
