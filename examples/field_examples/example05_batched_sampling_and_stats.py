@@ -28,8 +28,8 @@ def main() -> None:  # noqa: PLR0914
     y_mesh, _ = np.meshgrid(np.sin(theta) * r, z, indexing="xy")
     xyz = np.column_stack([x_mesh.ravel(), y_mesh.ravel(), z_mesh.ravel()])
 
-    B = region.field_at_many(xyz)  # (nz*ntheta, 3)
-    b_mag = np.linalg.norm(B, axis=1).reshape(nz, ntheta)
+    b_field = region.field_at_many(xyz)  # (nz*ntheta, 3)
+    b_mag = np.linalg.norm(b_field, axis=1).reshape(nz, ntheta)
     print(
         "B magnitude stats @ r=0.05: min=",
         float(b_mag.min()),

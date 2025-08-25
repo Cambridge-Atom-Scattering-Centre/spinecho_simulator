@@ -19,20 +19,18 @@ from spinecho_sim.solver._plot import (
 )
 from spinecho_sim.solver._solver import (
     ExperimentalTrajectory,
+    FieldSolver,
     MonatomicExperimentalTrajectory,
     MonatomicSimulationResult,
-    MonatomicSolenoid,
     SimulationResult,
-    Solenoid,
 )
 
 __all__ = [
     "ExperimentalTrajectory",
+    "FieldSolver",
     "MonatomicExperimentalTrajectory",
     "MonatomicSimulationResult",
-    "MonatomicSolenoid",
     "SimulationResult",
-    "Solenoid",
     "animate_diatomic_mean_expectation_vectors",
     "animate_monatomic_mean_expectation_vectors",
     "plot_diatomic_alignment_diagnostics",

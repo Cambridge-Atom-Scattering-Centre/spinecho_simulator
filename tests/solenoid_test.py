@@ -1,16 +1,16 @@
 from __future__ import annotations
 
 from itertools import starmap
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.integrate import solve_ivp  # type: ignore[import-untyped]
 
+from spinecho_sim.field import FieldRegion, SolenoidRegion
 from spinecho_sim.solver import (
     ExperimentalTrajectory,
+    FieldSolver,
     MonatomicExperimentalTrajectory,
-    MonatomicSolenoid,
-    Solenoid,
 )
 from spinecho_sim.state import (
     CoherentSpin,
@@ -22,37 +22,19 @@ from spinecho_sim.state import (
     sample_uniform_displacement,
 )
 
+if TYPE_CHECKING:
+    from spinecho_sim.util import Vec3
 
-def _get_field(
-    z: float,
-    displacement: ParticleDisplacement,
-    solenoid: Solenoid,
-    dz: float = 1e-5,
-) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
-    if displacement.r == 0:
-        return solenoid.field(z)
 
-    # Assuming that there is no current in the solenoid, we can
-    # calculate the field at any point using grad.B = 0. We do this
-    b_z_values = [solenoid.field(zi)[2] for zi in (z - dz, z, z + dz)]
-
-    b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)
-    b0_pp = (b_z_values[2] - 2 * b_z_values[1] + b_z_values[0]) / (dz**2)
-
-    b_r = -0.5 * displacement.r * b0_p
-    db_z = -0.25 * displacement.r**2 * b0_pp
-
-    return np.array(
-        [
-            b_r * np.cos(displacement.theta),
-            b_r * np.sin(displacement.theta),
-            b_z_values[1] + db_z,
-        ]
-    )
+def field_vec(field: FieldRegion, z: float, displacement: ParticleDisplacement) -> Vec3:
+    """Magnetic field at the particle's transverse displacement at z."""
+    x = displacement.x
+    y = displacement.y
+    return field.field_at(x, y, z)
 
 
 def simulate_trajectory_cartesian(
-    solenoid: Solenoid,
+    solenoid: SolenoidRegion,
     initial_state: MonatomicParticleState,
     n_steps: int = 100,
 ) -> ExperimentalTrajectory:
@@ -65,7 +47,7 @@ def simulate_trajectory_cartesian(
         z: float,
         spin: tuple[float, float, float],
     ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
-        field = _get_field(z, initial_state.displacement, solenoid)
+        field = field_vec(solenoid, z, initial_state.displacement)
         velocity = initial_state.parallel_velocity
 
         return (gyromagnetic_ratio / velocity) * np.cross(spin, field)
@@ -102,17 +84,18 @@ def test_simulate_trajectory() -> None:
         )[0],
     )
 
-    solenoid = MonatomicSolenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.01,
     )
+    solver = FieldSolver(region=field)
     n_steps = 300
-    result = solenoid.simulate_trajectory(initial_state, n_steps=n_steps)
+    result = solver.simulate_monatomic_trajectory(initial_state, n_steps=n_steps)
 
     assert result.spin.cartesian.shape == (3, n_steps + 1, 1)
 
-    expected = simulate_trajectory_cartesian(solenoid, initial_state, n_steps=n_steps)
+    expected = simulate_trajectory_cartesian(field, initial_state, n_steps=n_steps)
     np.testing.assert_allclose(
         result.spin.cartesian,
         expected.spin.cartesian,
@@ -132,13 +115,14 @@ def test_simulate_trajectories() -> None:
             1, particle_velocity, 0.225 * particle_velocity
         )[0],
     )
-    solenoid = MonatomicSolenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.01,
     )
-    result = solenoid.simulate_trajectories([initial_state], n_steps=300)
-    expected = solenoid.simulate_trajectory(initial_state, n_steps=300)
+    solver = FieldSolver(region=field)
+    result = solver.simulate_monatomic_trajectories([initial_state], n_steps=300)
+    expected = solver.simulate_monatomic_trajectory(initial_state, n_steps=300)
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
@@ -165,12 +149,13 @@ def test_simulate_trajectory_high_spin() -> None:
             1, particle_velocity, 0.225 * particle_velocity
         )[0],
     )
-    solenoid = MonatomicSolenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.01,
     )
-    result = solenoid.simulate_trajectory(initial_state, n_steps=300)
+    solver = FieldSolver(region=field)
+    result = solver.simulate_monatomic_trajectory(initial_state, n_steps=300)
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(
@@ -191,7 +176,7 @@ def test_simulate_trajectory_high_spin() -> None:
         displacement=initial_state.displacement,
         parallel_velocity=initial_state.parallel_velocity,
     )
-    result_1 = solenoid.simulate_trajectory(initial_state_1, n_steps=300)
+    result_1 = solver.simulate_monatomic_trajectory(initial_state_1, n_steps=300)
 
     # Both theta and phi should be the same for all stars
     np.testing.assert_allclose(

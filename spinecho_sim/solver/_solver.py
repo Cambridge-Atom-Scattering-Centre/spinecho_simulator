@@ -29,11 +29,13 @@ from spinecho_sim.state import (
 from spinecho_sim.util import solve_ivp_typed, sparse_apply, timed, verify_hermitian
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
+    from spinecho_sim.field import FieldRegion
     from spinecho_sim.state._state import (
         CoherentMonatomicParticleState,
     )
+    from spinecho_sim.util import Vec3
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -201,41 +203,33 @@ class StateVectorSimulationResult(SimulationResult):
 
 
 @dataclass(kw_only=True, frozen=True)
-class Solenoid:
+class FieldSolver:
     """Dataclass representing a solenoid with its parameters."""
 
-    length: float
-    field: Callable[[float], np.ndarray[Any, np.dtype[np.floating]]]
+    region: FieldRegion
+    z_start: float | None = None
+    z_end: float | None = None
 
-    @classmethod
-    def with_uniform_z(cls, length: float, strength: float) -> Solenoid:
-        """Build a solenoid with a uniform field along the z-axis."""
-        return cls(length=length, field=lambda _z: np.array([0.0, 0.0, strength]))
+    @property
+    def z_span(self) -> tuple[float, float]:
+        if self.z_start is not None and self.z_end is not None:
+            return (self.z_start, self.z_end)
+        ext = self.region.extent
+        if ext is None:
+            msg = "Region has no finite extent; supply z_start and z_end."
+            raise ValueError(msg)
+        return (ext.z[0], ext.z[1])
 
-    @classmethod
-    def with_nonuniform_z(
-        cls, length: float, strength: Callable[[float], float]
-    ) -> Solenoid:
-        """Build a solenoid with a non-uniform field along the z-axis."""
-        return cls(length=length, field=lambda z: np.array([0.0, 0.0, strength(z)]))
+    @property
+    def length(self) -> float:
+        z0, z1 = self.z_span
+        return float(z1 - z0)
 
-    @classmethod
-    def from_experimental_parameters(
-        cls, *, length: float, magnetic_constant: float, current: float
-    ) -> Solenoid:
-        """Build a solenoid from an experimental magnetic constant and current."""
-        b_z = np.pi * magnetic_constant * current / (2 * length)
-        return cls.with_nonuniform_z(
-            length=length,
-            strength=lambda z: b_z * np.sin(np.pi * z / length) ** 2,
-        )
-
-    def simulate_trajectory(
-        self,
-        initial_state: ParticleState,
-        n_steps: int = 100,
-    ) -> ExperimentalTrajectory:
-        raise NotImplementedError
+    def _field_vec(self, z: float, displacement: ParticleDisplacement) -> Vec3:
+        """Magnetic field at the particle's transverse displacement at z."""
+        x = displacement.x
+        y = displacement.y
+        return self.region.field_at(x, y, z)
 
     def simulate_diatomic_trajectory(
         self,
@@ -250,7 +244,7 @@ class Solenoid:
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         def schrodinger_eq(z: float, psi: np.ndarray) -> np.ndarray:
-            field = _get_field(z, initial_state.displacement, self)
+            field = self._field_vec(z, initial_state.displacement)
             hamiltonian = diatomic_hamiltonian_dicke(
                 i, j, initial_state.coefficients, field
             )
@@ -293,14 +287,6 @@ class Solenoid:
         )
 
     @timed
-    def simulate_trajectories(
-        self,
-        initial_states: Sequence[ParticleState],
-        n_steps: int = 100,
-    ) -> SimulationResult:
-        raise NotImplementedError
-
-    @timed
     def simulate_diatomic_trajectories(
         self,
         initial_states: Sequence[StateVectorParticleState],
@@ -318,38 +304,7 @@ class Solenoid:
             positions=z_points,
         )
 
-
-def _get_field(
-    z: float,
-    displacement: ParticleDisplacement,
-    solenoid: Solenoid,
-    dz: float = 1e-5,
-) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
-    if displacement.r == 0:
-        return solenoid.field(z)
-
-    # Assuming that there is no current in the solenoid, we can
-    # calculate the field at any point using grad.B = 0. We do this
-    b_z_values = [solenoid.field(zi)[2] for zi in (z - dz, z, z + dz)]
-
-    b0_p = (b_z_values[1] - b_z_values[-1]) / (2 * dz)
-    b0_pp = (b_z_values[2] - 2 * b_z_values[1] + b_z_values[0]) / (dz**2)
-
-    b_r = -0.5 * displacement.r * b0_p
-    db_z = -0.25 * displacement.r**2 * b0_pp
-
-    return np.array(
-        [
-            b_r * np.cos(displacement.theta),
-            b_r * np.sin(displacement.theta),
-            b_z_values[1] + db_z,
-        ]
-    )
-
-
-@dataclass(kw_only=True, frozen=True)
-class MonatomicSolenoid(Solenoid):
-    def _simulate_coherent_trajectory(
+    def _simulate_coherent_monatomic_trajectory(
         self,
         initial_state: CoherentMonatomicParticleState,
         n_steps: int = 100,
@@ -367,7 +322,7 @@ class MonatomicSolenoid(Solenoid):
         ) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
             theta, phi = angles
             # TODO: can we find B_phi and B_theta analytically to make this faster?  # noqa: FIX002
-            field = _get_field(z, initial_state.displacement, self)
+            field = self._field_vec(z, initial_state.displacement)
 
             # Ensure theta is not too close to 0 or pi to avoid coordinate singularity
             epsilon = 1e-12
@@ -400,8 +355,7 @@ class MonatomicSolenoid(Solenoid):
         )
         return sol.y[0], sol.y[1]
 
-    @override
-    def simulate_trajectory(
+    def simulate_monatomic_trajectory(
         self,
         initial_state: ParticleState,
         n_steps: int = 100,
@@ -413,7 +367,7 @@ class MonatomicSolenoid(Solenoid):
 
         data = np.empty((n_steps + 1, initial_state.spin.size, 2), dtype=np.float64)
         for i, s in enumerate(initial_state.as_coherent()):
-            thetas, phis = self._simulate_coherent_trajectory(s, n_steps)
+            thetas, phis = self._simulate_coherent_monatomic_trajectory(s, n_steps)
             data[:, i, 0] = thetas
             data[:, i, 1] = phis
 
@@ -430,8 +384,7 @@ class MonatomicSolenoid(Solenoid):
         )
 
     @timed
-    @override
-    def simulate_trajectories(
+    def simulate_monatomic_trajectories(
         self,
         initial_states: Sequence[ParticleState],
         n_steps: int = 100,
@@ -448,7 +401,7 @@ class MonatomicSolenoid(Solenoid):
         return MonatomicSimulationResult(
             trajectories=MonatomicTrajectoryList.from_monatomic_trajectories(
                 [
-                    self.simulate_trajectory(state, n_steps).trajectory
+                    self.simulate_monatomic_trajectory(state, n_steps).trajectory
                     for state in tqdm(
                         mono_initial_states, desc="Simulating Trajectories"
                     )
