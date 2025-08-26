@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.field import (
-    FieldRegion,
-    RotatedFieldRegion,
-    ScaledFieldRegion,
-    TranslatedFieldRegion,
-)
 from spinecho_sim.util import make_bx_blob
+
+if TYPE_CHECKING:
+    from spinecho_sim.field import (
+        FieldRegion,
+    )
 
 
 def visualize_extents(regions: list[FieldRegion], title: str = "Extents") -> None:
@@ -36,9 +37,9 @@ def main() -> None:
     blob = make_bx_blob(x_half=1.0, y_half=1.0, z0=0.0, z1=1.0)
 
     # Transform chain: rotate (90°) -> translate (dz=0.3) -> scale (x=0.5)
-    rotated = RotatedFieldRegion(base_region=blob, angle=np.pi / 2)
-    translated = TranslatedFieldRegion(base_region=rotated, dz=0.3)
-    scaled = ScaledFieldRegion(base_region=translated, scale=0.5)
+    rotated = blob.rotate(np.pi / 2)
+    translated = rotated.translate(dz=0.3)
+    scaled = translated.scale(0.5)
 
     print("base extent:", blob.extent)
     print("rotated extent:", rotated.extent)

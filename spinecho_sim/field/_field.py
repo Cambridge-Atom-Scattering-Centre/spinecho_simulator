@@ -134,6 +134,20 @@ class FieldRegion(ABC):
             return other + self
         return NotImplemented
 
+    def rotate(self, angle: float) -> RotatedFieldRegion:
+        """Rotate the field by a constant angle (in radians)."""
+        return RotatedFieldRegion(base_region=self, angle=angle)
+
+    def scale(self, factor: float) -> ScaledFieldRegion:
+        """Scale the field by a constant factor."""
+        return ScaledFieldRegion(base_region=self, factor=factor)
+
+    def translate(
+        self, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0
+    ) -> TranslatedFieldRegion:
+        """Translate the field by a constant offset."""
+        return TranslatedFieldRegion(base_region=self, dx=dx, dy=dy, dz=dz)
+
 
 @dataclass(kw_only=True, frozen=True)
 class ZeroField(FieldRegion):
@@ -719,15 +733,15 @@ class TranslatedFieldRegion(FieldRegion):
 @dataclass(kw_only=True, frozen=True)
 class ScaledFieldRegion(FieldRegion):
     base_region: FieldRegion
-    scale: float
+    factor: float
 
     @override
     def field_at(self, x: float, y: float, z: float) -> Vec3:
-        return self.base_region.field_at(x, y, z) * self.scale
+        return self.base_region.field_at(x, y, z) * self.factor
 
     @override
     def field_at_many(self, xyz: Array3) -> Array3:
-        return self.base_region.field_at_many(xyz) * self.scale
+        return self.base_region.field_at_many(xyz) * self.factor
 
     @property
     @override

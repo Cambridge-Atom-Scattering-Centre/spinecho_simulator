@@ -4,7 +4,6 @@ import numpy as np
 
 from spinecho_sim.field import (
     FieldRegion,
-    FieldSuperposition,
     UniformFieldRegion,
     ZeroField,
 )
@@ -24,7 +23,7 @@ def main() -> None:
         z_start=0.7,
     )
 
-    sup = FieldSuperposition(regions=[uniform_all, region_a, region_b, zero])
+    sup = uniform_all.then(region_a).then(region_b).then(zero)
 
     print("Uniform extent:", uniform_all.extent)
     print("A extent:", region_a.extent)
