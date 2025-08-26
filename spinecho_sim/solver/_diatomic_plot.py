@@ -26,13 +26,13 @@ def plot_diatomic_expectation_value(
 ) -> tuple[Figure | SubFigure, Axes]:
     fig, ax = get_figure(ax)
 
-    i = (result.hilbert_space_dims[0] - 1) / 2
-    j = (result.hilbert_space_dims[1] - 1) / 2
+    two_i = result.hilbert_space_dims[0] - 1
+    two_j = result.hilbert_space_dims[1] - 1
 
     if spin == "I":
-        ops, _ = build_collective_operators(i, j)
+        ops, _ = build_collective_operators(two_i=two_i, two_j=two_j)
     else:
-        _, ops = build_collective_operators(i, j)
+        _, ops = build_collective_operators(two_i=two_i, two_j=two_j)
 
     if spin == "I":
         labels = [
@@ -146,10 +146,9 @@ def plot_diatomic_expectation_difference(
 ) -> tuple[Figure | SubFigure, Axes]:
     fig, ax = get_figure(ax)
 
-    i = (result.hilbert_space_dims[0] - 1) / 2
-    j = (result.hilbert_space_dims[1] - 1) / 2
-
-    i_ops, j_ops = build_collective_operators(i, j)
+    i_ops, j_ops = build_collective_operators(
+        two_i=result.hilbert_space_dims[0] - 1, two_j=result.hilbert_space_dims[1] - 1
+    )
     labels = [
         r"\langle I_x \rangle - \langle J_x \rangle",
         r"\langle I_y \rangle - \langle J_y \rangle",
@@ -232,14 +231,14 @@ def compute_diatomic_alignment_tensor(
     """Compute the traceless, symmetric rank-2 tensor Q_ij for all components."""
     if spin == "I":
         ops, _ = build_collective_operators(
-            (result.hilbert_space_dims[0] - 1) / 2,
-            (result.hilbert_space_dims[1] - 1) / 2,
+            two_i=result.hilbert_space_dims[0] - 1,
+            two_j=result.hilbert_space_dims[1] - 1,
         )
         s = (result.hilbert_space_dims[0] - 1) / 2
     else:
         _, ops = build_collective_operators(
-            (result.hilbert_space_dims[0] - 1) / 2,
-            (result.hilbert_space_dims[1] - 1) / 2,
+            two_i=result.hilbert_space_dims[0] - 1,
+            two_j=result.hilbert_space_dims[1] - 1,
         )
         s = (result.hilbert_space_dims[1] - 1) / 2
 

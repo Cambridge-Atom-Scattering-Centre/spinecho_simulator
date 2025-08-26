@@ -346,13 +346,13 @@ def _calculate_expectation_values(
     spin: Literal["I", "J"],
 ) -> np.ndarray:
     """Calculate the expectation values for the given spin."""
-    i = (result.hilbert_space_dims[0] - 1) / 2
-    j = (result.hilbert_space_dims[1] - 1) / 2
+    two_i = result.hilbert_space_dims[0] - 1
+    two_j = result.hilbert_space_dims[1] - 1
 
     if spin == "I":
-        ops, _ = build_collective_operators(i, j)
+        ops, _ = build_collective_operators(two_i=two_i, two_j=two_j)
     else:
-        _, ops = build_collective_operators(i, j)
+        _, ops = build_collective_operators(two_i=two_i, two_j=two_j)
 
     positions = result.positions
     state_vectors = (

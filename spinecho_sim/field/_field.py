@@ -14,6 +14,7 @@ from typing import (
 )
 
 import numpy as np
+import scipy.integrate  # pyright: ignore[reportMissingTypeStubs]
 from scipy.interpolate import (  # pyright: ignore[reportMissingTypeStubs]
     RegularGridInterpolator,
 )
@@ -22,6 +23,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from spinecho_sim.util import Array3, Vec3
+
+
+def integrate_quad_typed(func: Callable[[float], float], a: float, b: float) -> float:
+    """Integrate a function using quadrature (adaptive Simpson's rule)."""
+    return scipy.integrate.quad(func, a, b)[0]  # pyright: ignore[reportUnknownVariableType]
 
 
 class AABB(NamedTuple):  # Axis-Aligned Bounding Box
@@ -276,7 +282,7 @@ class AnalyticFieldRegion(FieldRegion):
 
         # Compute off-axis components using paraxial expansion
         b_r = -0.5 * r * b0_p
-        b_z_off = b0 + (-0.25 * r**2 * b0_pp)
+        b_z_off = b0 - 0.25 * r**2 * b0_pp
 
         # Resolve Br into x and y components
         b_x = b_r * (x / r)
@@ -778,6 +784,14 @@ class SolenoidRegion(AnalyticFieldRegion):
     ) -> SolenoidRegion:
         """Build a solenoid from an experimental magnetic constant and current."""
         amp = np.pi * magnetic_constant * current / (2 * length)
+
+        def shape(z: float) -> float:
+            return np.sin(np.pi * (z - z_start) / length) ** 2
+
+        integral_bz = integrate_quad_typed(shape, z_start, z_start + length)
+        print(integral_bz)
+
+        amp = magnetic_constant * current / integral_bz
 
         def bz(z: float) -> float:
             return amp * np.sin(np.pi * (z - z_start) / length) ** 2
