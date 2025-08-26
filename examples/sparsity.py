@@ -51,7 +51,10 @@ def compare_sparsity(
 
             # Dicke Hamiltonian
             dicke_hamiltonian = build_diatomic_hamiltonian_dicke(
-                i=i, j=j, coefficients=coefficients, b_vec=np.array(b_vec)
+                two_i=int(2 * i),
+                two_j=int(2 * j),
+                coefficients=coefficients,
+                b_vec=np.array(b_vec),
             )
             dicke_metrics = compute_sparsity(dicke_hamiltonian)
 

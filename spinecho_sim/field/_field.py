@@ -32,6 +32,7 @@ class AABB(NamedTuple):  # Axis-Aligned Bounding Box
     @override
     def __repr__(self) -> str:
         return (
+            "Axis-Aligned Bounding Box:\n"
             f"(x=({float(self.x[0]):.1f}, {float(self.x[1]):.1f}), "
             f"y=({float(self.y[0]):.1f}, {float(self.y[1]):.1f}), "
             f"z=({float(self.z[0]):.1f}, {float(self.z[1]):.1f}))"
