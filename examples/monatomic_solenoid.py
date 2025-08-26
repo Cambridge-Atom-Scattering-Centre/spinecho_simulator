@@ -3,9 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim import (
-    MonatomicParticleState,
-)
+from spinecho_sim import create_initial_states
 from spinecho_sim.field import SolenoidRegion
 from spinecho_sim.solver import (
     FieldSolver,
@@ -13,36 +11,31 @@ from spinecho_sim.solver import (
     plot_monatomic_expectation_values,
     plot_monatomic_spin_states,
 )
-from spinecho_sim.state import (
-    CoherentSpin,
-    sample_gaussian_velocities,
-    sample_uniform_displacement,
-)
 
 if __name__ == "__main__":
     particle_velocity = 714
     num_spins = 10
-    initial_states = [
-        MonatomicParticleState(
-            _spin_angular_momentum=CoherentSpin(theta=np.pi / 2, phi=0).as_generic(
-                n_stars=1
-            ),
-            displacement=displacement,
-            parallel_velocity=velocity,
-            gyromagnetic_ratio=-2.04e8,
-        )
-        for displacement, velocity in zip(
-            sample_uniform_displacement(num_spins, 1.16e-3),
-            sample_gaussian_velocities(
-                num_spins, particle_velocity, 0.225 * particle_velocity
-            ),
-            strict=True,
-        )
-    ]
+    initial_states = create_initial_states(
+        spin=0.5,
+        num_spins=num_spins,
+        velocity=particle_velocity,
+        velocity_spread=0.225 * particle_velocity,
+        initial_theta=np.pi / 2,
+        initial_phi=0,
+        gyromagnetic_ratio=-2.04e8,
+        beam_radius=1.16e-3,
+    )
+
     field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.1,
+    ).then(
+        SolenoidRegion.from_experimental_parameters(
+            length=0.75,
+            magnetic_constant=3.96e-3,
+            current=-0.1,
+        ).translate(dz=0.75)
     )
     solver = FieldSolver(region=field)
     result = solver.simulate_monatomic_trajectories(initial_states, n_steps=1000)
