@@ -3,7 +3,7 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
-from spinecho_sim.field import FieldRegion, FieldSuperposition, UniformFieldRegion
+from spinecho_sim.field import FieldRegion, UniformFieldRegion
 
 
 def main() -> None:  # noqa: PLR0914
@@ -18,7 +18,7 @@ def main() -> None:  # noqa: PLR0914
 
     analytic = FieldRegion.analytic(bz=bz, length=length, z_start=0.0, dz=1e-6)
     uniform = UniformFieldRegion(B=np.array([0.0, 0.0, 0.1]))
-    region = FieldSuperposition(regions=[analytic, uniform])
+    region = analytic.then(uniform)
 
     r = 0.05
     ntheta, nz = 128, 256
