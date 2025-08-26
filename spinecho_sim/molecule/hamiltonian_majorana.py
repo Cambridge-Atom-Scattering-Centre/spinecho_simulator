@@ -19,7 +19,7 @@ sigma_z = sp.csr_matrix([[1, 0], [0, -1]])
 identity = sp.csr_matrix([[1, 0], [0, 1]])
 
 
-def zeeman_hamiltonian_majorana(
+def build_zeeman_hamiltonian_majorana(
     *,
     n_i: int,
     n_j: int,
@@ -62,7 +62,9 @@ def zeeman_hamiltonian_majorana(
     return hamiltonian
 
 
-def spin_rotational_block_majorana(*, n_i: int, n_j: int, c: float) -> sp.csr_matrix:
+def build_spin_rotational_hamiltonian_majorana(
+    *, n_i: int, n_j: int, c: float
+) -> sp.csr_matrix:
     """Construct the spin rotational block for two spin systems."""
     hamiltonian = sp.csr_matrix((2 ** (n_i + n_j),) * 2, dtype=complex)
     operator_list = [identity] * (n_i + n_j)
@@ -82,13 +84,13 @@ def spin_rotational_block_majorana(*, n_i: int, n_j: int, c: float) -> sp.csr_ma
     return hamiltonian
 
 
-def collective_ij_majorana(
+def build_collective_ij_majorana(
     n_i: int, n_j: int
 ) -> tuple[list[sp.csr_matrix], list[sp.csr_matrix]]:
     """Return the collective spin operators for two spin systems."""
     dim = 2 ** (n_i + n_j)
 
-    def i_alpha_component(operator: sp.csr_matrix) -> sp.csr_matrix:
+    def build_i_alpha_component(operator: sp.csr_matrix) -> sp.csr_matrix:
         operator_sum = sp.csr_matrix((dim, dim), dtype=complex)
         for i_index in range(n_i):
             operator_list = [identity] * (n_i + n_j)
@@ -96,9 +98,11 @@ def collective_ij_majorana(
             operator_sum = csr_add(operator_sum, kronecker_n(operator_list))
         return operator_sum
 
-    i_alpha = [i_alpha_component(operator) for operator in (sigma_x, sigma_y, sigma_z)]
+    i_alpha = [
+        build_i_alpha_component(operator) for operator in (sigma_x, sigma_y, sigma_z)
+    ]
 
-    def j_alpha_component(operator: sp.csr_matrix) -> sp.csr_matrix:
+    def build_j_alpha_component(operator: sp.csr_matrix) -> sp.csr_matrix:
         operator_sum = sp.csr_matrix((dim, dim), dtype=complex)
         for j_index in range(n_j):
             operator_list = [identity] * (n_i + n_j)
@@ -106,14 +110,16 @@ def collective_ij_majorana(
             operator_sum = csr_add(operator_sum, kronecker_n(operator_list))
         return operator_sum
 
-    j_alpha = [j_alpha_component(operator) for operator in (sigma_x, sigma_y, sigma_z)]
+    j_alpha = [
+        build_j_alpha_component(operator) for operator in (sigma_x, sigma_y, sigma_z)
+    ]
 
     return i_alpha, j_alpha
 
 
-def quadrupole_block_majorana(n_i: int, n_j: int, d: float) -> sp.csr_matrix:
+def build_quadrupole_block_majorana(n_i: int, n_j: int, d: float) -> sp.csr_matrix:
     """Return the d-term CSR matrix for given (N_I,N_J)."""
-    i_alpha, j_alpha = collective_ij_majorana(n_i, n_j)
+    i_alpha, j_alpha = build_collective_ij_majorana(n_i, n_j)
 
     # I⋅J -------------------------------------------------------------------
     i_dot_j = reduce(csr_add, map(sparse_matmul, i_alpha, j_alpha))
@@ -136,7 +142,7 @@ def quadrupole_block_majorana(n_i: int, n_j: int, d: float) -> sp.csr_matrix:
     return hamiltonian
 
 
-def diatomic_hamiltonian_majorana(
+def build_diatomic_hamiltonian_majorana(
     n_i: int,
     n_j: int,
     coefficients: tuple[float, float, float, float],
@@ -144,7 +150,7 @@ def diatomic_hamiltonian_majorana(
 ) -> sp.csr_matrix:
     """Construct the diatomic Hamiltonian for two spin systems."""
     a, b, c, d = coefficients
-    zeeman = zeeman_hamiltonian_majorana(n_i=n_i, n_j=n_j, a=a, b=b, b_vec=b_vec)
-    rotational = spin_rotational_block_majorana(n_i=n_i, n_j=n_j, c=c)
-    quadrupole = quadrupole_block_majorana(n_i=n_i, n_j=n_j, d=d)
+    zeeman = build_zeeman_hamiltonian_majorana(n_i=n_i, n_j=n_j, a=a, b=b, b_vec=b_vec)
+    rotational = build_spin_rotational_hamiltonian_majorana(n_i=n_i, n_j=n_j, c=c)
+    quadrupole = build_quadrupole_block_majorana(n_i=n_i, n_j=n_j, d=d)
     return csr_add(csr_add(zeeman, rotational), quadrupole)

@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Literal
 import numpy as np
 from matplotlib import pyplot as plt
 
-from spinecho_sim.molecule.hamiltonian_dicke import collective_ops_sparse
+from spinecho_sim.molecule.hamiltonian_dicke import build_collective_operators
 from spinecho_sim.util import csr_add, get_figure, sparse_apply, sparse_matmul
 
 if TYPE_CHECKING:
@@ -30,9 +30,9 @@ def plot_diatomic_expectation_value(
     j = (result.hilbert_space_dims[1] - 1) / 2
 
     if spin == "I":
-        ops, _ = collective_ops_sparse(i, j)
+        ops, _ = build_collective_operators(i, j)
     else:
-        _, ops = collective_ops_sparse(i, j)
+        _, ops = build_collective_operators(i, j)
 
     if spin == "I":
         labels = [
@@ -149,7 +149,7 @@ def plot_diatomic_expectation_difference(
     i = (result.hilbert_space_dims[0] - 1) / 2
     j = (result.hilbert_space_dims[1] - 1) / 2
 
-    i_ops, j_ops = collective_ops_sparse(i, j)
+    i_ops, j_ops = build_collective_operators(i, j)
     labels = [
         r"\langle I_x \rangle - \langle J_x \rangle",
         r"\langle I_y \rangle - \langle J_y \rangle",
@@ -231,13 +231,13 @@ def compute_diatomic_alignment_tensor(
 ) -> np.ndarray:
     """Compute the traceless, symmetric rank-2 tensor Q_ij for all components."""
     if spin == "I":
-        ops, _ = collective_ops_sparse(
+        ops, _ = build_collective_operators(
             (result.hilbert_space_dims[0] - 1) / 2,
             (result.hilbert_space_dims[1] - 1) / 2,
         )
         s = (result.hilbert_space_dims[0] - 1) / 2
     else:
-        _, ops = collective_ops_sparse(
+        _, ops = build_collective_operators(
             (result.hilbert_space_dims[0] - 1) / 2,
             (result.hilbert_space_dims[1] - 1) / 2,
         )

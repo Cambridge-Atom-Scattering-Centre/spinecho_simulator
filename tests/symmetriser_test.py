@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from spinecho_sim.state import CoherentSpin, Spin
-from spinecho_sim.util import product_state, symmetrize, to_array
+from spinecho_sim.util import csr_to_array, product_state, symmetrize
 
 
 @pytest.mark.parametrize(
@@ -47,11 +47,11 @@ def test_symmetrize(input_spin: Spin[tuple[int]], expected_output: np.ndarray) -
     p_sym = symmetrize(n)
     np.testing.assert_array_almost_equal(
         n + 1,
-        np.linalg.matrix_rank(to_array(p_sym)),
+        np.linalg.matrix_rank(csr_to_array(p_sym)),
         err_msg="Symmetrize rank mismatch.",
     )
 
-    output_state = to_array(p_sym) @ product_state(input_spin._spins)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
+    output_state = csr_to_array(p_sym) @ product_state(input_spin._spins)  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
     output_state /= np.linalg.norm(output_state)  # normalize
     np.testing.assert_array_almost_equal(
         output_state,

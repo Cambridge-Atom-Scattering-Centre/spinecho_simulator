@@ -8,10 +8,10 @@ import numpy as np
 from matplotlib.colors import Normalize
 
 from spinecho_sim.molecule import (
-    diatomic_hamiltonian_dicke,
-    diatomic_hamiltonian_majorana,
+    build_diatomic_hamiltonian_dicke,
+    build_diatomic_hamiltonian_majorana,
 )
-from spinecho_sim.util import to_array
+from spinecho_sim.util import csr_to_array
 
 if TYPE_CHECKING:
     import scipy.sparse as sp  # pyright: ignore[reportMissingTypeStubs]
@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 
 def compute_sparsity(hamiltonian: sp.csr_matrix) -> tuple[int, int, float]:
     """Compute sparsity metrics for a given Hamiltonian."""
-    hamiltonian_array = to_array(hamiltonian)
+    hamiltonian_array = csr_to_array(hamiltonian)
     nnz = hamiltonian.nnz
     size = hamiltonian_array.size
     sparsity = nnz / size
@@ -50,13 +50,13 @@ def compare_sparsity(
             print(f"Computing for I={i}, J={j}...")
 
             # Dicke Hamiltonian
-            dicke_hamiltonian = diatomic_hamiltonian_dicke(
+            dicke_hamiltonian = build_diatomic_hamiltonian_dicke(
                 i=i, j=j, coefficients=coefficients, b_vec=np.array(b_vec)
             )
             dicke_metrics = compute_sparsity(dicke_hamiltonian)
 
             # Majorana Hamiltonian
-            majorana_hamiltonian = diatomic_hamiltonian_majorana(
+            majorana_hamiltonian = build_diatomic_hamiltonian_majorana(
                 n_i=int(2 * i), n_j=int(2 * j), coefficients=coefficients, b_vec=b_vec
             )
             majorana_metrics = compute_sparsity(majorana_hamiltonian)

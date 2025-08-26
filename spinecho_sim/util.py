@@ -227,7 +227,7 @@ def kronecker_n(operator_list: list[sp.csr_matrix]) -> sp.csr_matrix:
     return reduce(sp.kron, operator_list)  # type: ignore[return-value]
 
 
-def to_array(sparse_matrix: sp.csr_matrix) -> np.ndarray:
+def csr_to_array(sparse_matrix: sp.csr_matrix) -> np.ndarray:
     """Convert a sparse matrix to a dense numpy array."""
     return sparse_matrix.toarray()  # type: ignore[return-value]
 
@@ -326,13 +326,6 @@ def solve_ivp_typed(  # noqa: PLR0913
 def verify_hermitian(matrix: sp.csr_matrix) -> bool:
     """Check if a sparse matrix is Hermitian."""
     return (matrix != matrix.getH()).nnz == 0  # pyright: ignore[reportUnknownVariableType]
-
-
-def validate_spin_quantum_number(s: float) -> None:
-    """Check if the spin quantum number is valid integer or half-integer."""  # noqa: DOC501
-    if not (s > 0 and (2 * s).is_integer()):
-        msg = f"Invalid spin quantum number: {s}. Must be a positive integer or half-integer."
-        raise ValueError(msg)
 
 
 def check_normalization(psi: np.ndarray, tolerance: float = 1e-8) -> None:

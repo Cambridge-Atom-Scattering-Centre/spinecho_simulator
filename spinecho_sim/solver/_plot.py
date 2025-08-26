@@ -11,7 +11,7 @@ from matplotlib.lines import Line2D
 from matplotlib.text import Text
 from tqdm import tqdm
 
-from spinecho_sim.molecule.hamiltonian_dicke import collective_ops_sparse
+from spinecho_sim.molecule.hamiltonian_dicke import build_collective_operators
 from spinecho_sim.state import get_expectation_values
 from spinecho_sim.util import (
     Arrow3D,
@@ -350,9 +350,9 @@ def _calculate_expectation_values(
     j = (result.hilbert_space_dims[1] - 1) / 2
 
     if spin == "I":
-        ops, _ = collective_ops_sparse(i, j)
+        ops, _ = build_collective_operators(i, j)
     else:
-        _, ops = collective_ops_sparse(i, j)
+        _, ops = build_collective_operators(i, j)
 
     positions = result.positions
     state_vectors = (
