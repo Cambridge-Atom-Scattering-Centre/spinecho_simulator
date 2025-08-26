@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, override
 import numpy as np
 from tqdm import tqdm
 
-from spinecho_sim.molecule import diatomic_hamiltonian_dicke
+from spinecho_sim.molecule import build_diatomic_hamiltonian_dicke
 from spinecho_sim.state import (
     EmptySpinList,
     EmptySpinListList,
@@ -245,7 +245,7 @@ class FieldSolver:
 
         def schrodinger_eq(z: float, psi: np.ndarray) -> np.ndarray:
             field = self._field_vec(z, initial_state.displacement)
-            hamiltonian = diatomic_hamiltonian_dicke(
+            hamiltonian = build_diatomic_hamiltonian_dicke(
                 i, j, initial_state.coefficients, field
             )
             assert verify_hermitian(hamiltonian), "Hamiltonian is not Hermitian"

@@ -3,8 +3,9 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 import numpy as np
 
+from spinecho_sim.field import SolenoidRegion
 from spinecho_sim.solver import (
-    MonatomicSolenoid,
+    FieldSolver,
     animate_monatomic_mean_expectation_vectors,
     plot_monatomic_expectation_trajectories,
 )
@@ -27,12 +28,13 @@ if __name__ == "__main__":
         displacement=ParticleDisplacement(r=1.16e-3),
     )
 
-    solenoid = MonatomicSolenoid.from_experimental_parameters(
+    field = SolenoidRegion.from_experimental_parameters(
         length=0.75,
         magnetic_constant=3.96e-3,
         current=0.1,
     )
-    result = solenoid.simulate_trajectories([initial_state], n_steps=1000)
+    solver = FieldSolver(region=field)
+    result = solver.simulate_monatomic_trajectories([initial_state], n_steps=1000)
 
     n_stars = result.spin.n_stars
     S = n_stars / 2
