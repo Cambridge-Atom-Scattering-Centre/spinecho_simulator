@@ -17,7 +17,7 @@ from spinecho_sim.util import csr_to_array, plot_complex_heatmap
 
 if __name__ == "__main__":
     # Generate single-spin angular momentum operators (Jx, Jy, Jz) in sparse form
-    result = build_single_spin_operators(1.0)
+    result = build_single_spin_operators(two_s=2)
 
     # Plot heatmaps for the single-spin operators
     fig, ax = plot_complex_heatmap(csr_to_array(result[0]))
@@ -28,7 +28,7 @@ if __name__ == "__main__":
     ax.set_title(r"$J_z$, $J=1$")
 
     # Generate collective angular momentum operators (Ix, Iy, Iz, Jx, Jy, Jz) in sparse form
-    i_ops, j_ops = build_collective_operators(i=1.0, j=1.0)
+    i_ops, j_ops = build_collective_operators(two_i=2, two_j=2)
     i_x, i_y, i_z, j_x, j_y, j_z = (*i_ops, *j_ops)  # Unpack the operators
 
     # Plot heatmaps for the collective operators
@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     # Construct the full diatomic Hamiltonian in the Dicke angular momentum basis
     full_result_sparse = build_diatomic_hamiltonian_dicke(
-        1,  # Spin quantum number I
-        1,  # Spin quantum number J
+        two_i=2,  # Spin quantum number I
+        two_j=2,  # Spin quantum number J
         coefficients=(
             2 * np.pi * 4.258e7,  # Coefficient for I·H interaction
             2 * np.pi * 0.66717e7,  # Coefficient for J·H interaction

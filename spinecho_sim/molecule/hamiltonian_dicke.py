@@ -18,19 +18,21 @@ from spinecho_sim.util import (
 )
 
 
-def validate_spin_quantum_number(s: float) -> None:
+def validate_spin_quantum_number(two_s: int) -> None:
     """Check if the spin quantum number is valid integer or half-integer."""  # noqa: DOC501
-    if not (s > 0 and (2 * s).is_integer()):
-        msg = f"Invalid spin quantum number: {s}. Must be a positive integer or half-integer."
+    if not (two_s).is_integer():
+        msg = f"Invalid spin quantum number: {two_s}. Must be a positive integer or half-integer."
         raise ValueError(msg)
 
 
 @cache
 def build_single_spin_operators(
-    s: float,
+    *,
+    two_s: int,
 ) -> tuple[sp.csr_matrix, sp.csr_matrix, sp.csr_matrix]:
     """Generate sparse matrices for single spin operators Sx, Sy, Sz."""
-    dim = int(2 * s + 1)
+    dim = two_s + 1
+    s = two_s / 2
     mj_values = np.arange(s, -s - 1, -1)
     j_z = csr_diags(mj_values, 0)
 
@@ -52,16 +54,15 @@ def build_single_spin_operators(
 
 @cache
 def build_collective_operators(
-    i: float, j: float
+    *, two_i: int, two_j: int
 ) -> tuple[list[sp.csr_matrix], list[sp.csr_matrix]]:
     """Generate sparse matrices for single spin operators acting on the space of two spins."""
-    i, j = round(i, ndigits=1), round(j, ndigits=1)
-    validate_spin_quantum_number(i)
-    validate_spin_quantum_number(j)
-    i_x, i_y, i_z = build_single_spin_operators(i)
-    j_x, j_y, j_z = build_single_spin_operators(j)
+    validate_spin_quantum_number(two_i)
+    validate_spin_quantum_number(two_j)
+    i_x, i_y, i_z = build_single_spin_operators(two_s=two_i)
+    j_x, j_y, j_z = build_single_spin_operators(two_s=two_j)
 
-    dim_i, dim_j = int(2 * i + 1), int(2 * j + 1)
+    dim_i, dim_j = two_i + 1, two_j + 1
     identity_i = csr_eye(dim_i)
     identity_j = csr_eye(dim_j)
 
@@ -77,10 +78,10 @@ def build_collective_operators(
 
 
 def build_zeeman_hamiltonian_dicke(
-    ops: list[sp.csr_matrix], b_vec: np.ndarray
+    *, operator_list: list[sp.csr_matrix], b_vec: np.ndarray
 ) -> sp.csr_matrix:
     """Generate and cache the Zeeman Hamiltonian for two spin systems."""
-    x, y, z = ops
+    x, y, z = operator_list
     return csr_add(
         csr_add(csr_scale(x, b_vec[0]), csr_scale(y, b_vec[1])),
         csr_scale(z, b_vec[2]),
@@ -88,19 +89,21 @@ def build_zeeman_hamiltonian_dicke(
 
 
 @cache
-def build_spin_rotation_hamiltonian_dicke(i: float, j: float) -> sp.csr_matrix:
+def build_spin_rotation_hamiltonian_dicke(*, two_i: int, two_j: int) -> sp.csr_matrix:
     """Generate the spin-rotation Hamiltonian for two spin systems."""
-    i, j = round(i, ndigits=1), round(j, ndigits=1)
-    i_ops, j_ops = build_collective_operators(i, j)
+    validate_spin_quantum_number(two_i)
+    validate_spin_quantum_number(two_j)
+    i_ops, j_ops = build_collective_operators(two_i=two_i, two_j=two_j)
     return reduce(csr_add, map(sparse_matmul, i_ops, j_ops))
 
 
 @cache
-def build_quadrupole_hamiltonian_dicke(i: float, j: float) -> sp.csr_matrix:
+def build_quadrupole_hamiltonian_dicke(*, two_i: int, two_j: int) -> sp.csr_matrix:
     """Generate the quadrupole Hamiltonian for two spin systems."""
-    i, j = round(i, ndigits=1), round(j, ndigits=1)
-    i_ops, j_ops = build_collective_operators(i, j)
-    i_dot_j = build_spin_rotation_hamiltonian_dicke(i, j)
+    validate_spin_quantum_number(two_i)
+    validate_spin_quantum_number(two_j)
+    i_ops, j_ops = build_collective_operators(two_i=two_i, two_j=two_j)
+    i_dot_j = build_spin_rotation_hamiltonian_dicke(two_i=two_i, two_j=two_j)
     ij_sq = sparse_matmul(i_dot_j, i_dot_j)
     i_sq = reduce(csr_add, map(sparse_matmul, i_ops, i_ops))
     j_sq = reduce(csr_add, map(sparse_matmul, j_ops, j_ops))
@@ -112,23 +115,26 @@ def build_quadrupole_hamiltonian_dicke(i: float, j: float) -> sp.csr_matrix:
 
 @cache
 def cache_terms_hamiltonian_dicke(
-    i: float, j: float, c: float, d: float
+    *, two_i: int, two_j: int, c: float, d: float
 ) -> sp.csr_matrix:
     """Generate the cache terms Hamiltonian for two spin systems."""
-    i, j = round(i, ndigits=1), round(j, ndigits=1)
+    validate_spin_quantum_number(two_i)
+    validate_spin_quantum_number(two_j)
     # 2) spin-rotation
     hamiltonian_spin_rotation = csr_scale(
-        build_spin_rotation_hamiltonian_dicke(i, j), c
+        build_spin_rotation_hamiltonian_dicke(two_i=two_i, two_j=two_j), c
     )
     assert verify_hermitian(hamiltonian_spin_rotation), (
         "Spin-rotation Hamiltonian is not Hermitian"
     )
 
     # 3) quadrupole / spin-spin
-    denominator = (2 * j - 1) * (2 * j + 3)
-    assert denominator != 0, f"Invalid denominator for quadrupole scaling: j={j}."
+    denominator = (two_j - 1) * (two_j + 3)
+    assert denominator != 0, (
+        f"Invalid denominator for quadrupole scaling: j={two_j / 2}."
+    )
     hamiltonian_quadrupole = csr_scale(
-        build_quadrupole_hamiltonian_dicke(i, j),
+        build_quadrupole_hamiltonian_dicke(two_i=two_i, two_j=two_j),
         (5 * d / denominator),
     )
     assert verify_hermitian(hamiltonian_quadrupole), (
@@ -138,25 +144,30 @@ def cache_terms_hamiltonian_dicke(
 
 
 def build_diatomic_hamiltonian_dicke(
-    i: float,
-    j: float,
+    *,
+    two_i: int,
+    two_j: int,
     coefficients: tuple[float, float, float, float],
     b_vec: np.ndarray,
 ) -> sp.csr_matrix:
     """Generate the Ramsey Hamiltonian as a sparse matrix."""
+    validate_spin_quantum_number(two_i)
+    validate_spin_quantum_number(two_j)
     a, b, c, d = coefficients
     # Generate spin operators
-    i, j = round(i, ndigits=1), round(j, ndigits=1)
-    i_ops, j_ops = build_collective_operators(i, j)
+    i_ops, j_ops = build_collective_operators(two_i=two_i, two_j=two_j)
     # Linear Zeeman terms
     hamiltonian_i = csr_scale(
-        build_zeeman_hamiltonian_dicke(i_ops, b_vec), complex(-1 * a)
+        build_zeeman_hamiltonian_dicke(operator_list=i_ops, b_vec=b_vec),
+        complex(-1 * a),
     )
     hamiltonian_j = csr_scale(
-        build_zeeman_hamiltonian_dicke(j_ops, b_vec), complex(-1 * b)
+        build_zeeman_hamiltonian_dicke(operator_list=j_ops, b_vec=b_vec),
+        complex(-1 * b),
     )
     hamiltonian = csr_add(
-        csr_add(hamiltonian_i, hamiltonian_j), cache_terms_hamiltonian_dicke(i, j, c, d)
+        csr_add(hamiltonian_i, hamiltonian_j),
+        cache_terms_hamiltonian_dicke(two_i=two_i, two_j=two_j, c=c, d=d),
     )
     hamiltonian.eliminate_zeros()  # keep it neat
     return hamiltonian

@@ -236,17 +236,20 @@ class FieldSolver:
         initial_state: StateVectorParticleState,
         n_steps: int = 100,
     ) -> StateVectorExperimentalTrajectory:
-        i = (initial_state.hilbert_space_dims[0] - 1) / 2
-        j = (initial_state.hilbert_space_dims[1] - 1) / 2  # dim=2j+1
-        assert i > 1 / 2, "Invalid diatomic spin state: i must be > 1/2"
-        assert j > 1 / 2, "Invalid diatomic spin state: j must be > 1/2"
+        two_i = initial_state.hilbert_space_dims[0] - 1
+        two_j = initial_state.hilbert_space_dims[1] - 1  # dim=2j+1
+        assert two_i >= 1, "Invalid diatomic spin state: i must be > 1/2"
+        assert two_j >= 1, "Invalid diatomic spin state: j must be > 1/2"
 
         z_points = np.linspace(0, self.length, n_steps + 1, endpoint=True)
 
         def schrodinger_eq(z: float, psi: np.ndarray) -> np.ndarray:
             field = self._field_vec(z, initial_state.displacement)
             hamiltonian = build_diatomic_hamiltonian_dicke(
-                i, j, initial_state.coefficients, field
+                two_i=two_i,
+                two_j=two_j,
+                coefficients=initial_state.coefficients,
+                b_vec=field,
             )
             assert verify_hermitian(hamiltonian), "Hamiltonian is not Hermitian"
             result = sparse_apply(hamiltonian, psi)
