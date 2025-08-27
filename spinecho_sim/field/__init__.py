@@ -15,6 +15,12 @@ from spinecho_sim.field._field import (
     UniformFieldRegion,
     ZeroField,
 )
+from spinecho_sim.field._plotting import (
+    HeatmapConfig,
+    PlotConfig,
+    plot_field_along_axis,
+    plot_field_heatmap,
+)
 
 __all__ = [
     "AnalyticFieldRegion",
@@ -22,10 +28,14 @@ __all__ = [
     "FieldRegion",
     "FieldSequence",
     "FieldSuperposition",
+    "HeatmapConfig",
+    "PlotConfig",
     "RotatedFieldRegion",
     "ScaledFieldRegion",
     "SolenoidRegion",
     "TranslatedFieldRegion",
     "UniformFieldRegion",
     "ZeroField",
+    "plot_field_along_axis",
+    "plot_field_heatmap",
 ]
