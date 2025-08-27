@@ -115,26 +115,6 @@ def plot_sweep_results(
 ) -> tuple[Figure, Axes]:
     """Plot the results of a parameter sweep."""
     fig, ax = plt.subplots(figsize=(10, 6))
-
-    # Plot spin components
-    # ax.plot(
-    #     sweep_result.parameter_values,
-    #     sweep_result.results[0],
-    #     "r-",
-    #     label=r"$\langle S_x \rangle$",
-    # )
-    # ax.plot(
-    #     sweep_result.parameter_values,
-    #     sweep_result.results[1],
-    #     "g-",
-    #     label=r"$\langle S_y \rangle$",
-    # )
-    # ax.plot(
-    #     sweep_result.parameter_values,
-    #     sweep_result.results[2],
-    #     "b-",
-    #     label=r"$\langle S_z \rangle$",
-    # )
     ax.plot(
         sweep_result.parameter_values,
         sweep_result.results[3],

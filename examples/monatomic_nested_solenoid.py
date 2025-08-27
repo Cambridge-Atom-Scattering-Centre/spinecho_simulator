@@ -4,13 +4,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from spinecho_sim import create_initial_states
-from spinecho_sim.field import SolenoidRegion
+from spinecho_sim.field import FieldRegion, SolenoidRegion
 from spinecho_sim.solver import (
     FieldSolver,
     plot_monatomic_expectation_angles,
     plot_monatomic_expectation_values,
     plot_monatomic_spin_states,
 )
+
+
+def create_nested_solenoids(
+    *,
+    outer_length: float,
+    inner_length: float,
+    magnetic_constant: float,
+    outer_current: float,
+    inner_current: float,
+) -> FieldRegion:
+    """Create a field with one solenoid and another shorter one inside with reversed current."""
+    # Create the outer solenoid
+    outer_solenoid = SolenoidRegion.from_experimental_parameters(
+        length=outer_length,
+        magnetic_constant=magnetic_constant,
+        current=outer_current,
+    )
+
+    # Create the inner solenoid, translated to be centered inside the outer solenoid
+    inner_solenoid = SolenoidRegion.from_experimental_parameters(
+        length=inner_length,
+        magnetic_constant=magnetic_constant,
+        current=inner_current,
+        z_start=outer_length / 2 - inner_length / 2,
+    )
+
+    # Combine the two solenoids into a single field
+    return outer_solenoid + inner_solenoid
+
 
 if __name__ == "__main__":
     particle_velocity = 714
@@ -26,16 +55,12 @@ if __name__ == "__main__":
         beam_radius=1.16e-3,
     )
 
-    field = SolenoidRegion.from_experimental_parameters(
-        length=0.75,
+    field = create_nested_solenoids(
+        outer_length=0.75,
+        inner_length=0.375,
         magnetic_constant=3.96e-3,
-        current=0.2,
-    ).then(
-        SolenoidRegion.from_experimental_parameters(
-            length=0.75,
-            magnetic_constant=3.96e-3,
-            current=-0.2,
-        ).translate(dz=0.75)
+        outer_current=0.1,
+        inner_current=-0.1,
     )
     solver = FieldSolver(region=field)
     result = solver.simulate_monatomic_trajectories(initial_states, n_steps=1000)
@@ -50,7 +75,9 @@ if __name__ == "__main__":
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = f"./examples/classical_solenoid.state.{num_spins}-spins_S-{S}.pdf"
+    output_path = (
+        f"./examples/monatomic_nested_solenoid.state.{num_spins}-spins_S-{S}.pdf"
+    )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     fig, ax = plot_monatomic_expectation_values(result)
@@ -60,7 +87,7 @@ if __name__ == "__main__":
         f"{num_spins} spins, $S={S_label}$",
     )
     output_path = (
-        f"./examples/classical_solenoid.expectation.{num_spins}-spins_S-{S}.pdf"
+        f"./examples/monatomic_nested_solenoid.expectation.{num_spins}-spins_S-{S}.pdf"
     )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
@@ -70,7 +97,9 @@ if __name__ == "__main__":
         r"$\mathbf{{B}} \approx B_0 \mathbf{z}$, "
         f"{num_spins} spins, $S={S_label}$",
     )
-    output_path = f"./examples/classical_solenoid.angles.{num_spins}-spins_S-{S}.pdf"
+    output_path = (
+        f"./examples/monatomic_nested_solenoid.angles.{num_spins}-spins_S-{S}.pdf"
+    )
     plt.savefig(output_path, dpi=600, bbox_inches="tight")
 
     plt.show()

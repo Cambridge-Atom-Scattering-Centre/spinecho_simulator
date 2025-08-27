@@ -149,7 +149,7 @@ class FieldRegion(ABC):
         return ScaledFieldRegion(base_region=self, factor=factor)
 
     def translate(
-        self, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0
+        self, *, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0
     ) -> TranslatedFieldRegion:
         """Translate the field by a constant offset."""
         return TranslatedFieldRegion(base_region=self, dx=dx, dy=dy, dz=dz)
@@ -783,17 +783,16 @@ class SolenoidRegion(AnalyticFieldRegion):
         z_start: float = 0.0,
     ) -> SolenoidRegion:
         """Build a solenoid from an experimental magnetic constant and current."""
-        amp = np.pi * magnetic_constant * current / (2 * length)
 
-        def shape(z: float) -> float:
-            return np.sin(np.pi * (z - z_start) / length) ** 2
+        def field_shape(z: float, field_strength: float = 1.0) -> float:
+            return field_strength * np.sin(np.pi * (z - z_start) / length) ** 2
 
-        integral_bz = integrate_quad_typed(shape, z_start, z_start + length)
-        print(integral_bz)
+        integral_bz = integrate_quad_typed(field_shape, z_start, z_start + length)
 
-        amp = magnetic_constant * current / integral_bz
-
-        def bz(z: float) -> float:
-            return amp * np.sin(np.pi * (z - z_start) / length) ** 2
-
-        return cls(bz_axis=bz, length=length, z_start=z_start)
+        return cls(
+            bz_axis=lambda z: field_shape(
+                z, field_strength=magnetic_constant * current / integral_bz
+            ),
+            length=length,
+            z_start=z_start,
+        )
