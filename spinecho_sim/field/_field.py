@@ -16,6 +16,7 @@ from typing import (
 import numpy as np
 import scipy.integrate  # pyright: ignore[reportMissingTypeStubs]
 from scipy.interpolate import (  # pyright: ignore[reportMissingTypeStubs]
+    CubicSpline,  # For smooth interpolation of field data
     RegularGridInterpolator,
 )
 
@@ -307,20 +308,22 @@ class AnalyticFieldRegion(FieldRegion):
         b0 = self._bz_v(z)
         b0_p = self._bz_p_v(z)
         b0_pp = self._bz_pp_v(z)
-        epsilon = 1e-15  # Small threshold for numerical stability
-        br = -0.5 * r * b0_p
-        bz = b0 - 0.25 * (r * r) * b0_pp
+
+        # Compute off-axis components
+        b_r = -0.5 * r * b0_p
+        b_z = b0 - 0.25 * (r * r) * b0_pp
 
         # Safely compute bx and by
+        epsilon = 1e-15  # Small threshold for numerical stability
         with np.errstate(divide="ignore", invalid="ignore"):
-            bx = np.zeros_like(br)
-            by = np.zeros_like(br)
+            b_x = np.zeros_like(b_r)
+            b_y = np.zeros_like(b_r)
             nonzero_r = r > epsilon
-            bx[nonzero_r] = br[nonzero_r] * (x[nonzero_r] / r[nonzero_r])
-            by[nonzero_r] = br[nonzero_r] * (y[nonzero_r] / r[nonzero_r])
+            b_x[nonzero_r] = b_r[nonzero_r] * (x[nonzero_r] / r[nonzero_r])
+            b_y[nonzero_r] = b_r[nonzero_r] * (y[nonzero_r] / r[nonzero_r])
 
         # Assign computed values to the output array
-        out[m, 0], out[m, 1], out[m, 2] = bx, by, bz
+        out[m, 0], out[m, 1], out[m, 2] = b_x, b_y, b_z
         return out
 
 
@@ -497,6 +500,147 @@ class DataFieldRegion(FieldRegion):
             result[in_bounds] = self._interpolator(xyz[in_bounds])
 
         return result
+
+
+@dataclass(kw_only=True, frozen=True)
+class AxisDataFieldRegion(FieldRegion):
+    """Field region defined by discrete on-axis data points with paraxial approximation."""
+
+    z_vals: np.ndarray  # 1D array of z-coordinates for on-axis field data
+    bz_vals: np.ndarray  # 1D array of Bz values at those z-coordinates
+    bz_deriv_vals: np.ndarray | None = (
+        None  # 1D array of Bz' values at those z-coordinates
+    )
+    bz_second_deriv_vals: np.ndarray | None = (
+        None  # 1D array of Bz'' values at those z-coordinates
+    )
+
+    _interpolator: CubicSpline = field(init=False, repr=False)
+    _deriv_interpolator: CubicSpline = field(init=False, repr=False)
+    _second_deriv_interpolator: CubicSpline = field(init=False, repr=False)
+
+    def __post_init__(self) -> None:
+        # Ensure input arrays are contiguous and of type float64
+        object.__setattr__(
+            self, "z_vals", np.asarray(self.z_vals, dtype=np.float64, order="C")
+        )
+        object.__setattr__(
+            self, "bz_vals", np.asarray(self.bz_vals, dtype=np.float64, order="C")
+        )
+
+        # Validate data
+        if self.z_vals.shape != self.bz_vals.shape:
+            msg = f"z_vals and bz_vals must have the same shape, got {self.z_vals.shape} and {self.bz_vals.shape}"
+            raise ValueError(msg)
+
+        if np.any(np.diff(self.z_vals) <= 0):
+            msg = "z_vals must be strictly increasing"
+            raise ValueError(msg)
+
+        # Create interpolators for field and its derivatives
+        cs = CubicSpline(self.z_vals, self.bz_vals)
+        object.__setattr__(self, "_interpolator", cs)
+
+        # First derivative interpolator
+        if self.bz_deriv_vals is not None:
+            if self.bz_deriv_vals.shape != self.z_vals.shape:
+                msg = "bz_deriv_vals must have the same shape as z_vals"
+                raise ValueError(msg)
+            deriv_cs = CubicSpline(self.z_vals, self.bz_deriv_vals)
+        else:
+            deriv_cs = CubicSpline(self.z_vals, cs(self.z_vals, 1))
+            object.__setattr__(self, "_deriv_interpolator", deriv_cs)
+
+        # Second derivative interpolator
+        if self.bz_second_deriv_vals is not None:
+            if self.bz_second_deriv_vals.shape != self.z_vals.shape:
+                msg = "bz_second_deriv_vals must have the same shape as z_vals"
+                raise ValueError(msg)
+            second_deriv_cs = CubicSpline(self.z_vals, self.bz_second_deriv_vals)
+        else:
+            second_deriv_cs = CubicSpline(self.z_vals, cs(self.z_vals, 2))
+            object.__setattr__(self, "_second_deriv_interpolator", second_deriv_cs)
+
+    @property
+    @override
+    def extent(self) -> AABB:
+        """Override the extent property to define the region's bounding box."""
+        return AABB(
+            (-np.inf, np.inf),  # x-range
+            (-np.inf, np.inf),  # y-range
+            (self.z_vals[0], self.z_vals[-1]),  # z-range
+        )
+
+    @override
+    def field_at(self, x: float, y: float, z: float) -> Vec3:
+        """Compute the (Bx, By, Bz) field at coordinates (x, y, z)."""
+        # If z is outside the data range, return zero field
+        if z < self.z_vals[0] or z > self.z_vals[-1]:
+            return np.array([0.0, 0.0, 0.0])
+
+        # Compute on-axis field and derivatives at this z using interpolation
+        b0 = self._interpolator(z)
+        b0_p = self._deriv_interpolator(z)
+        b0_pp = self._second_deriv_interpolator(z)
+
+        # Radial distance in x-y plane
+        r = np.hypot(x, y)
+        epsilon = 1e-15  # Small threshold for numerical stability
+        if r < epsilon:
+            return np.array([0.0, 0.0, b0])
+
+        # Compute off-axis components using paraxial expansion
+        b_r = -0.5 * r * b0_p
+        b_z_off = b0 - 0.25 * r**2 * b0_pp
+
+        # Resolve Br into x and y components
+        b_x = b_r * (x / r)
+        b_y = b_r * (y / r)
+        return np.array([b_x, b_y, b_z_off])
+
+    @override
+    def field_at_many(self, xyz: Array3) -> Array3:
+        """Compute the field at multiple points in one call."""
+        # Initialize output array
+        out = np.zeros_like(xyz, dtype=np.float64)
+
+        # Mask for points within the region
+        m = self.contains_many(xyz)  # use the vectorized contains
+        if not np.any(m):
+            return out
+
+        # Extract x, y, z for in-bounds points
+        x, y, z = xyz[m, 0], xyz[m, 1], xyz[m, 2]
+        r = np.hypot(x, y)
+
+        # Compute field components using interpolation
+        b0 = self._interpolator(z)
+        b0_p = self._deriv_interpolator(z)
+        b0_pp = self._second_deriv_interpolator(z)
+
+        # Compute off-axis components
+        b_r = -0.5 * r * b0_p
+        b_z = b0 - 0.25 * (r * r) * b0_pp
+
+        # Safely compute bx and by
+        epsilon = 1e-15  # Small threshold for numerical stability
+        with np.errstate(divide="ignore", invalid="ignore"):
+            b_x = np.zeros_like(b_r)
+            b_y = np.zeros_like(b_r)
+            nonzero_r = r > epsilon
+            b_x[nonzero_r] = b_r[nonzero_r] * (x[nonzero_r] / r[nonzero_r])
+            b_y[nonzero_r] = b_r[nonzero_r] * (y[nonzero_r] / r[nonzero_r])
+
+        # Assign computed values to the output array
+        out[m, 0], out[m, 1], out[m, 2] = b_x, b_y, b_z
+        return out
+
+    @classmethod
+    def from_measured_data(
+        cls, z_vals: np.ndarray, bz_vals: np.ndarray
+    ) -> AxisDataFieldRegion:
+        """Create an AxisDataFieldRegion from measured z and Bz values."""
+        return cls(z_vals=z_vals, bz_vals=bz_vals)
 
 
 @dataclass(kw_only=True, frozen=True)

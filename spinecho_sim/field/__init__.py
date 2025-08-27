@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from spinecho_sim.field._field import (
     AnalyticFieldRegion,
+    AxisDataFieldRegion,
     DataFieldRegion,
     FieldRegion,
     FieldSequence,
@@ -24,6 +25,7 @@ from spinecho_sim.field._plotting import (
 
 __all__ = [
     "AnalyticFieldRegion",
+    "AxisDataFieldRegion",
     "DataFieldRegion",
     "FieldRegion",
     "FieldSequence",

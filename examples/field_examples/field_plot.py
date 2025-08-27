@@ -47,7 +47,7 @@ if __name__ == "__main__":
     field = create_nested_solenoids(
         outer_length=0.75,
         outer_current=1.0,
-        inner_length=0.5,
+        inner_length=0.25,
         inner_current=-1.0,
         magnetic_constant=3.96e-3,
     )

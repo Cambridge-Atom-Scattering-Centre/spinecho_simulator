@@ -27,7 +27,7 @@ class PlotConfig:
     line_styles: dict[str, str] | None = None
     show_magnitude: bool = True
     show_colorbar: bool = True
-    title: str = "Magnetic Field Along Z-Axis"
+    title: str = "Magnetic Field Along z-Axis"
     save_path: str | None = None
 
 
