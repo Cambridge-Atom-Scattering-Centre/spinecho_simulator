@@ -52,7 +52,7 @@ class Trajectory(Sequence[Any]):
             "All states must have the same displacement."
         )
         coefficients_set = [state.coefficients for state in states]
-        assert all(c == coefficients_set for c in coefficients_set), (
+        assert all(c == coefficients_set[0] for c in coefficients_set), (
             "All states must have the same coefficients."
         )
         return Trajectory(

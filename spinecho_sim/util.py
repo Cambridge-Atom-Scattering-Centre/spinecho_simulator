@@ -190,7 +190,7 @@ def csr_diags(
     return cast("sp.csr_matrix", m)
 
 
-def csr_eye(n: float, dtype: type = complex) -> sp.csr_matrix:
+def csr_eye(n: int, dtype: type = complex) -> sp.csr_matrix:
     """Typed identity matrix in sp.csr_matrix format."""
     return cast("sp.csr_matrix", sp.eye(n, dtype=dtype, format="csr"))
 
@@ -363,7 +363,7 @@ class Arrow3D(FancyArrowPatch):
     def do_3d_projection(self) -> float:
         """Handle 3D projection for the arrow."""
         xs, ys, zs = self._verts3d
-        xs, ys, zs = proj3d.proj_transform(xs, ys, zs, self.axes.M)  # pyright: ignore[reportUnknownVariableType, reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownArgumentType] # pyright: ignorereportOptionalMemberAccess, [reportAttributeAccessIssue, reportUnknownArgumentType, reportUnknownVariableType]
+        xs, ys, zs = proj3d.proj_transform(xs, ys, zs, self.axes.M)  # pyright: ignore[reportUnknownVariableType, reportOptionalMemberAccess, reportAttributeAccessIssue, reportUnknownArgumentType]
         self.set_positions((xs[0], ys[0]), (xs[1], ys[1]))  # pyright: ignore[reportUnknownArgumentType]
         return min(zs)  # pyright: ignore[reportUnknownArgumentType] # Return the minimum z-value for depth sorting
 
