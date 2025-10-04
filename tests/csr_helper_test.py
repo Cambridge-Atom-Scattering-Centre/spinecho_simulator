@@ -19,7 +19,7 @@ def test_csr_scale() -> None:
 
 def test_csr_scale_zero() -> None:
     i, j = 1, 1
-    i_ops, _j_ops = build_collective_operators(i, j)
+    i_ops, _j_ops = build_collective_operators(two_i=2 * i, two_j=2 * j)
     b_vec = np.array([0.2, 0.2, 1])
     mat = build_zeeman_hamiltonian_dicke(operator_list=i_ops, b_vec=b_vec)
     scaled = csr_scale(mat, complex(0))
