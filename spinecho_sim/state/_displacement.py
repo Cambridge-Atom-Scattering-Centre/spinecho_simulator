@@ -85,12 +85,12 @@ class ParticleDisplacementList(Sequence[ParticleDisplacement]):
     @property
     def x(self) -> np.ndarray[Any, np.dtype[np.floating]]:
         """Get the x-displacement of the particles."""
-        return np.array([displacement.x for displacement in self])
+        return self.r * np.cos(self.theta)
 
     @property
     def y(self) -> np.ndarray[Any, np.dtype[np.floating]]:
         """Get the y-displacement of the particles."""
-        return np.array([displacement.y for displacement in self])
+        return self.r * np.sin(self.theta)
 
     @property
     def shape(self) -> tuple[int, ...]:

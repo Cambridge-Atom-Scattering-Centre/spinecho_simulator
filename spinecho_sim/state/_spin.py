@@ -16,7 +16,7 @@ def _get_polynomial_product(
     """
     Compute the coefficients of product polynomial.
 
-    P(z) = ∏ (b_i - a_i z), returned as a vector of coefficients.
+    P(z) = ∏ (b_i + a_i z), returned as a vector of coefficients.
     """
     a = np.sin(states.theta / 2) * np.exp(1j * states.phi)
     b = -np.cos(states.theta / 2)

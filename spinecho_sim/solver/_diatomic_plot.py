@@ -276,7 +276,7 @@ def compute_diatomic_alignment_tensor(
         for j in range(i):
             q_ij_values[i, j, :, :] = q_ij_values[j, i, :, :]
 
-    return q_ij_values
+    return q_ij_values / (s * (s + 1))  # normalize
 
 
 def plot_diatomic_alignment_tensor(
