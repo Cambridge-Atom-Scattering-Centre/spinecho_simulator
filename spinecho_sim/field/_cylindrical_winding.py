@@ -9,8 +9,10 @@ from matplotlib import pyplot as plt
 from spinecho_sim.field import (
     AxisDataFieldRegion,
     FieldRegion,
+    HeatmapConfig,
     PlotConfig,
     plot_field_along_axis,
+    plot_field_heatmap,
 )
 
 if TYPE_CHECKING:
@@ -28,21 +30,23 @@ class ProportionalPitchWinding:
     turns_per_layer: Sequence[int]  # turns per layer (finite)
     current_per_layer: Sequence[float]
 
+    @property
     def _pitch(self) -> float:
         n_max = max(self.turns_per_layer) if self.turns_per_layer else 1
         return self.length / max(n_max, 1)
 
     @property
     def loop_lengths(self) -> np.ndarray:
-        return self._pitch() * np.asarray(self.turns_per_layer)
+        return self._pitch * np.asarray(self.turns_per_layer)
 
 
-def bz_axis_from_loops(
+def _bz_axis_from_loops(
     z_vals: np.ndarray,
     winding: ProportionalPitchWinding,
 ) -> np.ndarray:
     """Sum the on-axis field Bz(z) from a finite set of circular loops."""
     currents = np.asarray(winding.current_per_layer)
+    turns = np.asarray(winding.turns_per_layer)
     radii = np.asarray(winding.radii)
     dz = z_vals[None, :] - winding.length / 2  # (L, M), centered about middle
     lengths = winding.loop_lengths
@@ -53,6 +57,7 @@ def bz_axis_from_loops(
         0.5
         * MU0
         * currents[:, None]
+        * turns[:, None]
         * (
             (dz + 0.5 * lengths[:, None]) / denom_plus
             - (dz - 0.5 * lengths[:, None]) / denom_minus
@@ -61,37 +66,57 @@ def bz_axis_from_loops(
     return contrib.sum(axis=0)  # (M,)
 
 
-def bz_p_axis_from_loops(
+def _bz_p_axis_from_loops(
     z_vals: np.ndarray,
     winding: ProportionalPitchWinding,
 ) -> np.ndarray:
     """Sum the on-axis field Bz'(z) from a finite set of circular loops."""
-    raise NotImplementedError
-    current = np.asarray(winding.current_per_layer)
+    currents = np.asarray(winding.current_per_layer)
+    turns = np.asarray(winding.turns_per_layer)
     radii = np.asarray(winding.radii)
     dz = z_vals[None, :] - winding.length / 2
-    denom = (radii[:, None] ** 2 + dz**2) ** 2.5  # (a^2 + (z - z0)^2)^(5/2)
+    lengths = winding.loop_lengths
+
+    denom_plus = (radii[:, None] ** 2 + (dz + 0.5 * lengths[:, None]) ** 2) ** 1.5
+    denom_minus = (radii[:, None] ** 2 + (dz - 0.5 * lengths[:, None]) ** 2) ** 1.5
+
     contrib = (
-        MU0 * current[:, None] * (radii[:, None] ** 2) * (-3.0 * dz) / (2.0 * denom)
+        0.5
+        * MU0
+        * currents[:, None]
+        * turns[:, None]
+        * radii[:, None] ** 2
+        * (1 / denom_plus - 1 / denom_minus)
     )
-    return contrib.sum(axis=0)
+    return contrib.sum(axis=0)  # (M,)
 
 
-def bz_pp_axis_from_loops(
+def _bz_pp_axis_from_loops(
     z_vals: np.ndarray,
     winding: ProportionalPitchWinding,
 ) -> np.ndarray:
     """Sum the on-axis field Bz''(z) from a finite set of circular loops."""
-    raise NotImplementedError
+    currents = np.asarray(winding.current_per_layer)
+    turns = np.asarray(winding.turns_per_layer)
     radii = np.asarray(winding.radii)
-    current = np.asarray(winding.current_per_layer)
     dz = z_vals[None, :] - winding.length / 2
-    r2 = radii[:, None] ** 2 + dz**2
-    denom_7_2 = r2**3.5
-    denom_5_2 = r2**2.5
-    term = (-3.0) / denom_5_2 + (15.0 * dz**2) / denom_7_2
-    contrib = MU0 * current[:, None] * (radii[:, None] ** 2) / 2.0 * term
-    return contrib.sum(axis=0)
+    lengths = winding.loop_lengths
+
+    denom_plus = (radii[:, None] ** 2 + (dz + 0.5 * lengths[:, None]) ** 2) ** 2.5
+    denom_minus = (radii[:, None] ** 2 + (dz - 0.5 * lengths[:, None]) ** 2) ** 2.5
+
+    contrib = (
+        1.5
+        * MU0
+        * currents[:, None]
+        * turns[:, None]
+        * radii[:, None] ** 2
+        * (
+            -(dz + 0.5 * lengths[:, None]) / denom_plus
+            + (dz - 0.5 * lengths[:, None]) / denom_minus
+        )
+    )
+    return contrib.sum(axis=0)  # (M,)
 
 
 def make_axis_region_from_winding(
@@ -101,14 +126,14 @@ def make_axis_region_from_winding(
     include_derivatives: bool = True,
 ) -> FieldRegion:
     """Compute on-axis data (and optional derivatives) for a finite set of turns laid out by 'winding', returns AxisDataFieldRegion."""
-    bz = bz_axis_from_loops(
+    bz = _bz_axis_from_loops(
         z_vals,
         winding,
     )
 
     if include_derivatives:
-        dbz = bz_p_axis_from_loops(z_vals, winding)
-        d2bz = bz_pp_axis_from_loops(z_vals, winding)
+        dbz = _bz_p_axis_from_loops(z_vals, winding)
+        d2bz = _bz_pp_axis_from_loops(z_vals, winding)
         return AxisDataFieldRegion(
             z_vals=z_vals, bz_vals=bz, bz_deriv_vals=dbz, bz_second_deriv_vals=d2bz
         )
@@ -125,10 +150,10 @@ if __name__ == "__main__":
         length=0.75,
         radii=[1.65e-2, 2.295e-2],  # 16.5mm inner radius, 2.15mm coil radius
         turns_per_layer=[1370, 995],  # finite, discrete turns
-        current_per_layer=[1.0, -1.0],
+        current_per_layer=[1.0 / 1370, -1.0 / 995],
     )
 
-    axis_region = make_axis_region_from_winding(z, w, include_derivatives=False)
+    axis_region = make_axis_region_from_winding(z, w, include_derivatives=True)
     # -> hand 'axis_region' to your new AxisDataFieldRegion pipeline
 
     # Plot the field along the axis
@@ -136,6 +161,30 @@ if __name__ == "__main__":
         axis_region,
         config=PlotConfig(
             title="On-Axis Field from Measured Data",
+        ),
+    )
+
+    # Plot a heatmap of the field
+    fig2, ax2 = plot_field_heatmap(
+        axis_region,
+        component="Bz",
+        x_max=1.16e-3,  # beam radius
+        config=HeatmapConfig(
+            title="Field from Measured Data - Bz Component",
+            cmap="coolwarm",
+            symmetric_scale=True,
+            show_field_lines=True,
+        ),
+    )
+
+    # Plot a heatmap of the field magnitude
+    fig3, ax3 = plot_field_heatmap(
+        axis_region,
+        component="magnitude",
+        x_max=1.16e-3,  # beam radius
+        config=HeatmapConfig(
+            title="Nested Solenoids - Field Magnitude",
+            show_field_lines=True,
         ),
     )
     plt.show()

@@ -549,7 +549,7 @@ class AxisDataFieldRegion(FieldRegion):
             deriv_cs = CubicSpline(self.z_vals, self.bz_deriv_vals)
         else:
             deriv_cs = CubicSpline(self.z_vals, cs(self.z_vals, 1))
-            object.__setattr__(self, "_deriv_interpolator", deriv_cs)
+        object.__setattr__(self, "_deriv_interpolator", deriv_cs)
 
         # Second derivative interpolator
         if self.bz_second_deriv_vals is not None:
@@ -559,7 +559,7 @@ class AxisDataFieldRegion(FieldRegion):
             second_deriv_cs = CubicSpline(self.z_vals, self.bz_second_deriv_vals)
         else:
             second_deriv_cs = CubicSpline(self.z_vals, cs(self.z_vals, 2))
-            object.__setattr__(self, "_second_deriv_interpolator", second_deriv_cs)
+        object.__setattr__(self, "_second_deriv_interpolator", second_deriv_cs)
 
     @property
     @override
