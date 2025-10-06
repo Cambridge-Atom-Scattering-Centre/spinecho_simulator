@@ -187,7 +187,7 @@ class UniformFieldRegion(FieldRegion):
 
 @dataclass(kw_only=True, frozen=True)
 class AnalyticFieldRegion(FieldRegion):
-    """Analytic field region defined by an on-axis Bz(z) profile (axisymmetric)."""
+    """Analytic field region defined by an on-axis Bz(z) profile (axi-symmetric)."""
 
     bz_axis: Callable[[float], float]  # User-supplied on-axis Bz(z) function
     length: float  # Length of this region along z-axis

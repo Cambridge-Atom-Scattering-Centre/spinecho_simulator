@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Literal,
+    TypedDict,
     cast,
 )
 
@@ -20,41 +21,43 @@ if TYPE_CHECKING:
     from spinecho_sim.util import Array3
 
 
-@dataclass
-class PlotConfig:
+class PlotLineStyles(TypedDict, total=False):
+    Bx: str
+    By: str
+    Bz: str
+    magnitude: str
+
+
+@dataclass(kw_only=True, frozen=True)
+class FieldPlotConfig:
     cmap: str = "viridis"
     figsize: tuple[float, float] = (12, 8)
-    line_styles: dict[str, str] | None = None
+    line_styles: PlotLineStyles | None = None
     show_magnitude: bool = True
     show_colorbar: bool = True
-    title: str = "Magnetic Field Along z-Axis"
-    save_path: str | None = None
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class HeatmapConfig:
     cmap: str = "viridis"
     figsize: tuple[float, float] = (12, 8)
-    title: str | None = None
     show_colorbar: bool = True
-    show_contours: bool = False
-    n_contours: int = 10
+    n_contours: int | None = 10
     show_field_lines: bool = False
     field_line_density: float = 1.0
     field_line_color: str = "w"
     field_line_width: float = 0.5
     symmetric_scale: bool = False
-    save_path: str | None = None
 
 
-DEFAULT_PLOT_CONFIG = PlotConfig()
+DEFAULT_PLOT_CONFIG = FieldPlotConfig()
 DEFAULT_HEATMAP_CONFIG = HeatmapConfig()  # Module-level singleton variable
 
 
-def determine_z_range(
-    field_region: FieldRegion, z_start: float | None, z_end: float | None
+def _determine_heatmap_z_range(
+    field_region: FieldRegion, z_range: tuple[float | None, float | None]
 ) -> tuple[float, float]:
-    """Determine the z-axis range for the heatmap."""
+    z_start, z_end = z_range
     if z_start is None or z_end is None:
         extent = field_region.extent
         assert extent is not None, (
@@ -68,15 +71,20 @@ def determine_z_range(
     return z_start, z_end
 
 
-def create_field_plot(
+def _create_field_plot(
     z_values: np.ndarray,
     fields: np.ndarray,
     *,
-    config: PlotConfig = DEFAULT_PLOT_CONFIG,
+    config: FieldPlotConfig = DEFAULT_PLOT_CONFIG,
 ) -> tuple[Figure, Axes]:
     """Create a plot of the magnetic field."""
     # Default line styles
-    default_styles = {"Bx": "r-", "By": "g-", "Bz": "b-", "magnitude": "k--"}
+    default_styles: PlotLineStyles = {
+        "Bx": "r-",
+        "By": "g-",
+        "Bz": "b-",
+        "magnitude": "k--",
+    }
 
     if config.line_styles:
         default_styles.update(config.line_styles)
@@ -96,14 +104,13 @@ def create_field_plot(
 
 def plot_field_along_axis(
     field_region: FieldRegion,
-    z_start: float | None = None,
-    z_end: float | None = None,
+    z_range: tuple[float | None, float | None] = (None, None),
     num_points: int = 1000,
     *,
-    config: PlotConfig = DEFAULT_PLOT_CONFIG,
+    config: FieldPlotConfig = DEFAULT_PLOT_CONFIG,
 ) -> tuple[Figure, Axes]:
     """Plot magnetic field components along the z-axis (at x=0, y=0)."""
-    z_start, z_end = determine_z_range(field_region, z_start, z_end)
+    z_start, z_end = _determine_heatmap_z_range(field_region, z_range)
 
     # Create points along z-axis
     z_values = np.linspace(z_start, z_end, num_points)
@@ -114,26 +121,22 @@ def plot_field_along_axis(
     fields = field_region.field_at_many(points)
 
     # Create plot
-    fig, ax = create_field_plot(z_values, fields, config=config)
+    fig, ax = _create_field_plot(z_values, fields, config=config)
 
     ax.set_xlabel("z position (m)")
     ax.set_ylabel("Field (T)")
-    ax.set_title(config.title)
+    ax.set_title("Magnetic Field Along z-Axis")
     ax.legend()
     ax.grid(visible=True)
     ax.set_xlim(z_start, z_end)
 
-    if config.save_path:
-        plt.savefig(config.save_path, dpi=300, bbox_inches="tight")
-
     return fig, ax
 
 
-def create_heatmap(  # noqa: PLR0913, PLR0917
+def create_heatmap(
     component_values: np.ndarray,
     x_max: float,
     z_range: tuple[float, float],
-    title: str | None,
     norm: Normalize | None,
     config: HeatmapConfig,
 ) -> tuple[Figure, Axes, AxesImage]:
@@ -147,43 +150,45 @@ def create_heatmap(  # noqa: PLR0913, PLR0917
         cmap=config.cmap,
         norm=norm,
     )
-    if title:
-        ax.set_title(title)
     return fig, ax, im
 
 
-def create_contours(  # noqa: PLR0913, PLR0917
+def _create_contours(
     ax: Axes,
-    xz_meshes: tuple[np.ndarray, np.ndarray],
-    field_region: FieldRegion,
+    x_mesh: np.ndarray,
+    z_mesh: np.ndarray,
     component_values: np.ndarray,
-    x_max: float,
-    z_range: tuple[float, float],
+    n_contours: int,
+) -> None:
+    contour_levels = np.linspace(
+        float(component_values.min()), float(component_values.max()), n_contours
+    )
+    ax.contour(
+        x_mesh,
+        z_mesh,
+        component_values,
+        levels=contour_levels,
+        colors="k",
+        alpha=0.5,
+        linewidths=0.5,
+    )
+
+
+def _create_field_lines(
+    ax: Axes,
+    x_mesh: np.ndarray[tuple[int, int], np.dtype[np.float64]],
+    z_mesh: np.ndarray[tuple[int, int], np.dtype[np.float64]],
+    field_region: FieldRegion,
     config: HeatmapConfig,
 ) -> None:
-    # Add contour lines if requested
-    if config.show_contours:
-        contour_levels = np.linspace(
-            float(component_values.min()),
-            float(component_values.max()),
-            config.n_contours,
-        )
-        ax.contour(
-            xz_meshes[0],
-            xz_meshes[1],
-            component_values,
-            levels=contour_levels,
-            colors="k",
-            alpha=0.5,
-            linewidths=0.5,
-        )
-
+    x_max = float(x_mesh[0, -1])
+    z_range = (float(z_mesh[0, 0]), float(z_mesh[-1, 0]))
     # Add field lines if requested
     if config.show_field_lines:
         # Create a grid for the streamplot
         nx_stream, nz_stream = 50, 50  # Smaller grid for streamplot
         x_stream = np.linspace(0, x_max, nx_stream)
-        z_stream = np.linspace(z_range[0], z_range[1], nz_stream)
+        z_stream = np.linspace(*z_range, nz_stream)
         x_mesh, z_mesh = np.meshgrid(x_stream, z_stream)
 
         # Calculate field at each point in the streamplot grid
@@ -210,20 +215,16 @@ def create_contours(  # noqa: PLR0913, PLR0917
         )
 
 
-def compute_field_component(
+def _evaluate_field_region(
     field_region: FieldRegion,
     component: Literal["Bx", "By", "Bz", "magnitude"],
-    x_max: float,
-    z_range: tuple[float, float],
-    n_xz: tuple[int, int],
-) -> tuple[np.ndarray, str, np.ndarray, np.ndarray]:
+    x_mesh: np.ndarray,
+    z_mesh: np.ndarray,
+) -> np.ndarray:
     """Compute the field component values for the heatmap."""
     # Create 2D grid of points
-    x_values = np.linspace(0, x_max, n_xz[0])  # Only positive x (radius)
-    z_values = np.linspace(z_range[0], z_range[1], n_xz[1])
 
-    x_mesh, z_mesh = np.meshgrid(x_values, z_values)
-    points = cast("Array3", np.zeros((n_xz[0] * n_xz[1], 3)))
+    points = cast("Array3", np.zeros((x_mesh.size, 3)))
     points[:, 0] = x_mesh.flatten()  # x coordinates
     points[:, 2] = z_mesh.flatten()  # z coordinates
 
@@ -231,37 +232,52 @@ def compute_field_component(
     fields = field_region.field_at_many(points)
 
     # Reshape and extract the desired component
-    fields_reshaped = fields.reshape((n_xz[1], n_xz[0], 3))
+    fields_reshaped = fields.reshape((*x_mesh.shape, 3))
 
     if component == "Bx":
         component_values = fields_reshaped[:, :, 0]
-        component_label = "B_x (T)"
     elif component == "By":
         component_values = fields_reshaped[:, :, 1]
-        component_label = "B_y (T)"
     elif component == "Bz":
         component_values = fields_reshaped[:, :, 2]
-        component_label = "B_z (T)"
     elif component == "magnitude":
         component_values = np.linalg.norm(fields_reshaped, axis=2)
-        component_label = "|B| (T)"
-    return component_values, component_label, x_mesh, z_mesh
+    return component_values
+
+
+def _get_field_component_label(
+    component: Literal["Bx", "By", "Bz", "magnitude"],
+) -> str:
+    if component == "Bx":
+        return "B_x (T)"
+    if component == "By":
+        return "B_y (T)"
+    if component == "Bz":
+        return "B_z (T)"
+    if component == "magnitude":
+        return "|B| (T)"
+    msg = f"Unknown component: {component}"
+    raise ValueError(msg)
 
 
 def plot_field_heatmap(  # noqa: PLR0913, PLR0917
     field_region: FieldRegion,
     component: Literal["Bx", "By", "Bz", "magnitude"] = "Bz",
     x_max: float = 1.16e-3,  # Beam Radius
-    z_start: float | None = None,
-    z_end: float | None = None,
-    n_xz: tuple[int, int] = (100, 500),
+    z_range: tuple[float | None, float | None] = (None, None),
+    n_x: int = 100,
+    n_z: int = 500,
     config: HeatmapConfig = DEFAULT_HEATMAP_CONFIG,
 ) -> tuple[Figure, Axes]:
     """Create a heatmap of the magnetic field in the x-z plane (at y=0)."""
-    z_start, z_end = determine_z_range(field_region, z_start, z_end)
-    component_values, component_label, x_mesh, z_mesh = compute_field_component(
-        field_region, component, x_max, (z_start, z_end), n_xz
-    )
+    z_start, z_end = _determine_heatmap_z_range(field_region, z_range)
+
+    x_values = np.linspace(0, x_max, n_x)  # Only positive x (radius)
+    z_values = np.linspace(z_start, z_end, n_z)
+    x_mesh, z_mesh = np.meshgrid(x_values, z_values)
+
+    component_values = _evaluate_field_region(field_region, component, x_mesh, z_mesh)
+    component_label = _get_field_component_label(component)
     # Set up color mapping
     if config.symmetric_scale and component != "magnitude":
         vmax = np.max(np.abs(component_values))
@@ -270,30 +286,20 @@ def plot_field_heatmap(  # noqa: PLR0913, PLR0917
         norm = None
 
     fig, ax, im = create_heatmap(
-        component_values, x_max, (z_start, z_end), config.title, norm, config
+        component_values, x_max, (z_start, z_end), norm, config
     )
 
-    create_contours(
-        ax,
-        (x_mesh, z_mesh),
-        field_region,
-        component_values,
-        x_max,
-        (z_start, z_end),
-        config,
-    )
+    if config.n_contours is not None:
+        _create_contours(ax, x_mesh, z_mesh, component_values, config.n_contours)
+    if config.show_field_lines:
+        _create_field_lines(ax, x_mesh, z_mesh, field_region, config)
 
     # Set title and labels
-    if config.title is None:
-        config.title = f"Magnetic Field {component} in X-Z Plane (Y=0)"
-    ax.set_title(config.title)
+    ax.set_title(f"Magnetic Field {component} in X-Z Plane (Y=0)")
     ax.set_xlabel("X position (m)")
     ax.set_ylabel("Z position (m)")
     ax.set_xlim(0, x_max)
     ax.set_ylim(z_start, z_end)
-
-    if config.save_path:
-        plt.savefig(config.save_path, dpi=300, bbox_inches="tight")
 
     # Add colorbar
     if config.show_colorbar:

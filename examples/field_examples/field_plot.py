@@ -3,9 +3,9 @@ from __future__ import annotations
 import matplotlib.pyplot as plt
 
 from spinecho_sim.field import (
+    FieldPlotConfig,
     FieldSuperposition,
     HeatmapConfig,
-    PlotConfig,
     SolenoidRegion,
     plot_field_along_axis,
     plot_field_heatmap,
@@ -55,11 +55,10 @@ if __name__ == "__main__":
     # Plot the field along the z-axis
     fig1, ax1 = plot_field_along_axis(
         field,
-        config=PlotConfig(
-            title="Nested Solenoids - Field Along Z-Axis",
-            save_path="./examples/nested_solenoids_axial.png",
-        ),
+        config=FieldPlotConfig(),
     )
+    ax1.set_title("Nested Solenoids - Field Along Z-Axis")
+    fig1.savefig("./examples/nested_solenoids_axial.png")
 
     # Plot a heatmap of the Bz component
     fig2, ax2 = plot_field_heatmap(
@@ -67,26 +66,21 @@ if __name__ == "__main__":
         component="Bz",
         x_max=1.16e-3,  # Beam Radius
         config=HeatmapConfig(
-            title="Nested Solenoids - Bz Component",
-            cmap="coolwarm",
-            symmetric_scale=True,
-            show_field_lines=True,
-            save_path="./examples/nested_solenoids_heatmap_bz.png",
+            cmap="coolwarm", symmetric_scale=True, show_field_lines=True
         ),
     )
+    ax2.set_title("Nested Solenoids - Bz Component")
+    fig2.savefig("./examples/nested_solenoids_heatmap_bz.png")
 
     # Plot a heatmap of the field magnitude
     fig3, ax3 = plot_field_heatmap(
         field,
         component="magnitude",
         x_max=1.16e-3,  # Beam Radius
-        config=HeatmapConfig(
-            title="Nested Solenoids - Field Magnitude",
-            cmap="viridis",
-            show_field_lines=True,
-            save_path="./examples/nested_solenoids_heatmap_magnitude.png",
-        ),
+        config=HeatmapConfig(cmap="viridis", show_field_lines=True),
     )
+    ax3.set_title("Nested Solenoids - Field Magnitude")
+    fig3.savefig("./examples/nested_solenoids_heatmap_magnitude.png")
 
     plt.show()
     print("Plots saved to examples/ directory")

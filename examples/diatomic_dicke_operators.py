@@ -17,14 +17,14 @@ from spinecho_sim.util import csr_to_array, plot_complex_heatmap
 
 if __name__ == "__main__":
     # Generate single-spin angular momentum operators (Jx, Jy, Jz) in sparse form
-    result = build_single_spin_operators(two_s=2)
+    operators = build_single_spin_operators(two_s=2)
 
     # Plot heatmaps for the single-spin operators
-    fig, ax = plot_complex_heatmap(csr_to_array(result[0]))
+    fig, ax = plot_complex_heatmap(csr_to_array(operators[0]))
     ax.set_title(r"$J_x$, $J=1$")
-    fig, ax = plot_complex_heatmap(csr_to_array(result[1]))
+    fig, ax = plot_complex_heatmap(csr_to_array(operators[1]))
     ax.set_title(r"$J_y$, $J=1$")
-    fig, ax = plot_complex_heatmap(csr_to_array(result[2]))
+    fig, ax = plot_complex_heatmap(csr_to_array(operators[2]))
     ax.set_title(r"$J_z$, $J=1$")
 
     # Generate collective angular momentum operators (Ix, Iy, Iz, Jx, Jy, Jz) in sparse form
