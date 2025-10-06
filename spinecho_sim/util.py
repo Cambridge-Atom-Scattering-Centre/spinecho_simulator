@@ -232,13 +232,18 @@ def csr_to_array(sparse_matrix: sp.csr_matrix) -> np.ndarray:
     return sparse_matrix.toarray()  # type: ignore[return-value]
 
 
+def _normalized_magnitude(arr: np.ndarray) -> np.ndarray:
+    """Get the magnitude normalized to [0, 1]."""
+    magnitude = np.abs(arr)
+    if magnitude.max() > 0:
+        return magnitude / magnitude.max()
+    return magnitude
+
+
 def plot_complex_heatmap(arr: np.ndarray) -> tuple[Figure, Axes]:
     """Plot a complex-valued array as a heatmap with phase and magnitude."""
-    magnitude = np.abs(arr)
+    magnitude = _normalized_magnitude(arr)
     phase = np.angle(arr)
-
-    # Normalize magnitude to [0, 1] for alpha
-    mag_norm = magnitude / magnitude.max() if magnitude.max() > 0 else magnitude
 
     # Map phase to RGB using hsv colormap
     cmap = plt.get_cmap("hsv")
@@ -248,7 +253,7 @@ def plot_complex_heatmap(arr: np.ndarray) -> tuple[Figure, Axes]:
     # Create RGBA image: set alpha to normalized magnitude
     rgba = np.zeros((*arr.shape, 4))
     rgba[..., :3] = rgb
-    rgba[..., 3] = mag_norm
+    rgba[..., 3] = magnitude
 
     fig, ax = plt.subplots()
     ax.imshow(rgba, interpolation="nearest")

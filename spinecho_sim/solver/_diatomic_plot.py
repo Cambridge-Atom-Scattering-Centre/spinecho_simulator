@@ -364,7 +364,7 @@ def plot_diatomic_alignment_diagnostics(  # noqa: PLR0914
         number_particles, number_positions, 3
     ).transpose(2, 0, 1)  # (3, Np, Nz)
 
-    # --- uniaxial S and biaxiality η per particle/position ---------------------
+    # --- uniaxial S and bi-axiality η per particle/position ---------------------
     # largest eigenvalue is lam[0]
     s = 1.5 * eigenvalues[0, :, :]  # (Np, Nz)
     eta = (eigenvalues[1, :, :] - eigenvalues[2, :, :]) / eigenvalues[0, :, :]

@@ -8,9 +8,9 @@ from matplotlib import pyplot as plt
 
 from spinecho_sim.field import (
     AxisDataFieldRegion,
+    FieldPlotConfig,
     FieldRegion,
     HeatmapConfig,
-    PlotConfig,
     plot_field_along_axis,
     plot_field_heatmap,
 )
@@ -159,10 +159,9 @@ if __name__ == "__main__":
     # Plot the field along the axis
     fig1, ax1 = plot_field_along_axis(
         axis_region,
-        config=PlotConfig(
-            title="On-Axis Field from Measured Data",
-        ),
+        config=FieldPlotConfig(),
     )
+    ax1.set_title("On-Axis Field from Measured Data")
 
     # Plot a heatmap of the field
     fig2, ax2 = plot_field_heatmap(
@@ -170,21 +169,18 @@ if __name__ == "__main__":
         component="Bz",
         x_max=1.16e-3,  # beam radius
         config=HeatmapConfig(
-            title="Field from Measured Data - Bz Component",
-            cmap="coolwarm",
-            symmetric_scale=True,
-            show_field_lines=True,
+            cmap="coolwarm", symmetric_scale=True, show_field_lines=True
         ),
     )
+    ax2.set_title("Field from Measured Data - Bz Component")
+    fig2.savefig("./examples/nested_solenoids_heatmap_bz.png")
 
     # Plot a heatmap of the field magnitude
     fig3, ax3 = plot_field_heatmap(
         axis_region,
         component="magnitude",
         x_max=1.16e-3,  # beam radius
-        config=HeatmapConfig(
-            title="Nested Solenoids - Field Magnitude",
-            show_field_lines=True,
-        ),
+        config=HeatmapConfig(show_field_lines=True),
     )
+    ax3.set_title("Nested Solenoids - Field Magnitude")
     plt.show()
